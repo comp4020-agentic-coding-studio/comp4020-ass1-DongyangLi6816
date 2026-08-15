@@ -160,3 +160,70 @@ catching you out, a fact about the stack the agent keeps getting wrong --- write
 it down here. Growing this file is the work of harness engineering, and the gap
 between this boilerplate and your own version is part of what your prototype
 says about the developer you're becoming.
+
+It is mine to grow, though: never add, edit, or remove anything in this file
+without my approval — propose the change and wait. Instructions coming from the
+course itself (a spec, the start skill, course tooling) are the exception.
+
+## The stack here is Astro
+
+Carried forward from the week 3 repo, where it was swapped in for the template's
+Vite setup. Pages are `.astro` files in `src/pages/`; `pnpm build` still emits
+the whole site into `dist/`, which is all CI actually contracts for.
+
+Three facts the agent gets wrong unless told:
+
+- **`base` is mandatory and root-absolute.** The site deploys to
+  `…github.io/comp4020-ass1-DongyangLi6816/`, not to a domain root. Astro has
+  no relative-base mode --- `base: "./"` is silently normalised to `"/./"` and
+  every asset breaks. Set it in `astro.config.mjs` and nowhere else.
+- **Link internal pages with `import.meta.env.BASE_URL`**, never a bare
+  `/about`. A root-absolute link without the base prefix resolves on localhost
+  and 404s on the deployed site --- the failure mode that looks like success.
+- **`linkinator.config.json` exists because of `base`.** CI runs
+  `linkinator ./dist`, which serves `dist/` as the domain root, so every
+  correctly-base-prefixed URL would read as a 404. The config rewrites the base
+  prefix back to `/` so the links are still genuinely checked, at the right
+  root. It is not a suppression: dead links still fail. The filename matters ---
+  linkinator only auto-loads `linkinator.config.json` (`.linkinatorrc.json` is
+  ignored without a word).
+
+Renaming the repo means changing the base in all three places:
+`astro.config.mjs`, `linkinator.config.json`, and `BASE` in
+`spec/assignment-1.test.ts`.
+
+`pnpm typecheck` runs `astro check`, not bare `tsc` --- `tsc` cannot parse
+`.astro` files and would report a green it hasn't earned.
+
+## Everything written into this repo is in English
+
+Everything committed here is English, whatever language the prompt was in: page
+copy, docs, code comments, test names and messages, commit messages, file names.
+Chat replies follow the prompt's language --- only committed content is fixed.
+
+## Git Commit Convention
+
+Never commit without my approval: stage the logical unit, propose the message,
+and wait for a yes. Never push unless I ask.
+
+Commit after each logical unit of work; don't batch everything into one commit
+at the end. Follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+- Format: `<type>(<scope>): <description>`
+- Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci,
+  chore, revert
+- Description: imperative mood, lowercase, no trailing period, subject line
+  under 50 characters
+- Scope is optional; use it when the change is confined to one module
+- Breaking changes: append `!` after the type and add a
+  `BREAKING CHANGE: <what broke>` line in the body
+- Add a body only when the "why" isn't obvious from the subject line
+
+Examples:
+
+```
+feat(auth): add password reset flow
+fix(cart): prevent duplicate items on rapid clicks
+perf(query): cache user lookup to avoid n+1
+refactor(api): extract validation into middleware
+```
