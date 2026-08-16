@@ -815,6 +815,21 @@ const coastline = roughen(rawCoastline);
 
       const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
 
+      /**
+       * How far through a duration a frame is, from 0 to 1.
+       *
+       * Clamped at both ends, and the lower clamp is the one that earns its
+       * place. A requestAnimationFrame callback is handed the timestamp of the
+       * frame it belongs to, and that can predate the `performance.now()`
+       * taken in the click handler that started the animation --- by about a
+       * frame. The elapsed time is then negative, and an ease of a negative
+       * number is negative: the ship took one frame *backwards*, past the stop
+       * it was leaving, before setting off. Every animation on this page runs
+       * off this, so none of them can do it.
+       */
+      const elapsed = (now: number, started: number, duration: number) =>
+        duration <= 0 ? 1 : Math.min(1, Math.max(0, (now - started) / duration));
+
       function animateTo(index: number) {
         const fromProgress = progress;
         const fromDay = day;
@@ -851,10 +866,8 @@ const coastline = roughen(rawCoastline);
         cancelAnimationFrame(frameRequest);
 
         const step = (now: number) => {
-          const t = now - started;
-          const sailing = travel === 0 ? 1 : Math.min(1, t / travel);
-          const staying =
-            dwell === 0 ? 1 : Math.min(1, Math.max(0, (t - travel) / dwell));
+          const sailing = elapsed(now, started, travel);
+          const staying = elapsed(now, started + travel, dwell);
 
           progress = fromProgress + (index - fromProgress) * easeOut(sailing);
           day = Math.round(fromDay + (toDay - fromDay) * easeOut(staying));
@@ -1188,7 +1201,7 @@ const coastline = roughen(rawCoastline);
         const duration = 900;
         cancelAnimationFrame(mixFrame);
         const step = (now: number) => {
-          const t = Math.min(1, (now - started) / duration);
+          const t = elapsed(now, started, duration);
           mix = from + (mixTarget - from) * easeOut(t);
           drawCalendar();
           if (t < 1) mixFrame = requestAnimationFrame(step);
@@ -1417,7 +1430,7 @@ const coastline = roughen(rawCoastline);
         const from = audio.volume;
         const started = performance.now();
         const step = (now: number) => {
-          const t = Math.min(1, (now - started) / 700);
+          const t = elapsed(now, started, 700);
           audio.volume = from + (target - from) * t;
           if (t < 1) fade = requestAnimationFrame(step);
           else done?.();
@@ -1541,7 +1554,7 @@ const coastline = roughen(rawCoastline);
 
         const started = performance.now();
         const step = (now: number) => {
-          const t = Math.min(1, (now - started) / CROSSING_MS);
+          const t = elapsed(now, started, CROSSING_MS);
           nostosProgress = easeInOut(t);
           drawNostos(nostosProgress);
 
@@ -1631,7 +1644,7 @@ const coastline = roughen(rawCoastline);
 
         const started = performance.now();
         const step = (now: number) => {
-          const t = Math.min(1, (now - started) / REVEAL_ROUTE_MS);
+          const t = elapsed(now, started, REVEAL_ROUTE_MS);
           sailed.style.strokeDashoffset = String(ROUTE_LENGTH * (1 - easeOut(t)));
           if (t < 1) requestAnimationFrame(step);
           else handOver();
