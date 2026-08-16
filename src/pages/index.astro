@@ -209,8 +209,7 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
             <span id="scale-label">Story order</span>
           </button>
           <span class="scale-note" id="scale-note">
-            Fourteen stops at equal width, the way the voyage is retold. Filled
-            where the poem states a length, a bare line where it states none.
+            Fourteen stops at equal width, the way the voyage is retold.
           </span>
         </p>
 
@@ -542,11 +541,6 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
           clay.setAttribute("patternTransform", `scale(${1 / z})`);
         }
         hasSelected = true;
-
-        // The reveal happens once, at the stop it is about. Arriving at Ogygia
-        // is the moment the retelling and the calendar come apart, so that is
-        // where the lane stops pretending they are the same shape.
-        if (index === 11 && mixTarget < 0.5) setScale(1);
         const dwell = dwellTime(Math.abs(toDay - fromDay));
         const started = performance.now();
 
@@ -586,6 +580,13 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
       function showText(index: number) {
         current = index;
         const stop = STOPS[index]!;
+
+        // The reveal happens once, at the stop it is about: arriving at Ogygia
+        // is where the retelling and the calendar come apart. It lives here
+        // rather than with the crossing animation because a drag never runs
+        // that --- scrubbing past Ogygia used to slide straight through the one
+        // moment the lane exists for.
+        if (index === OGYGIA && mixTarget < 0.5) setScale(1);
 
         // Restart the entrance animation rather than queueing one, so dragging
         // the timeline fast never leaves the panel mid-fade.
@@ -784,15 +785,19 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
       const scaleNote = document.querySelector<HTMLElement>("#scale-note")!;
 
       const SPANS = STOPS.map((_, i) => calendarSpan(i));
+      const OGYGIA = STOPS.findIndex((stop) => stop.id === "ogygia");
       const STORY = STOPS.map((_, i) => storyPosition(i));
 
-      const marks = STOPS.map((stop, i) => {
+      // Every stop is the same kind of mark in the same colour. Width is the
+      // only thing that varies, which is the whole point of the lane: a stop
+      // the poem gives no length to collapses to nothing on the calendar, and
+      // that is visible without a second colour having to mean it.
+      const marks = STOPS.map((_, i) => {
         const el = document.createElement("span");
-        const hasWidth = (stop.days ?? 0) > 0;
-        el.className = hasWidth ? "cal-block" : "cal-gap";
+        el.className = "cal-block";
         el.dataset.index = String(i);
         track.append(el);
-        return { el, hasWidth };
+        return { el };
       });
 
       let mix = 0;
@@ -814,14 +819,10 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
 
       function drawCalendar() {
         const leaders: string[] = [];
-        marks.forEach(({ el, hasWidth }, i) => {
+        marks.forEach(({ el }, i) => {
           const { start, width } = laneGeometry(i);
-          if (hasWidth) {
-            el.style.left = `${start}%`;
-            el.style.width = `${width}%`;
-          } else {
-            el.style.left = `${start + width}%`;
-          }
+          el.style.left = `${start}%`;
+          el.style.width = `${width}%`;
           // From the control below, which never moves, to where this stop
           // actually falls on the calendar above.
           leaders.push(`M${STORY[i]! * 100} 100L${start + width} 0`);
@@ -839,9 +840,9 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         // a visitor has no reason to guess it.
         scaleNote.textContent = showsCalendar
           ? `Each stay as wide as the days the poem states — Ogygia is ${Math.round(
-              (SPANS[11]!.end - SPANS[11]!.start) * 100,
+              (SPANS[OGYGIA]!.end - SPANS[OGYGIA]!.start) * 100,
             )} per cent of it, and eight stops have no width at all.`
-          : "Fourteen stops at equal width, the way the voyage is retold. Filled where the poem states a length, a bare line where it states none.";
+          : "Fourteen stops at equal width, the way the voyage is retold.";
 
         if (!animated || stillness.matches) {
           mix = mixTarget;

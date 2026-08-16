@@ -732,6 +732,12 @@ body::after {
      thing. */
   background: var(--figure);
   opacity: 0.36;
+
+  /* One pixel so a stop that takes no time at all is still findable on the
+     lane. The width that carries meaning is measured, not floored --- this is
+     a minimum for the eye, and the eight stops it applies to are named in the
+     note beside the toggle. */
+  min-width: 1px;
   transition: opacity 0.25s ease;
 }
 
@@ -742,22 +748,6 @@ body::after {
 
 .cal-block.is-past {
   opacity: 0.46;
-}
-
-/* A stop the poem gives no length to. Not a small block --- no width at all,
-   because that is the fact. It still gets a hairline so it can be seen. */
-.cal-gap {
-  position: absolute;
-  top: -2px;
-  width: 1px;
-  height: calc(100% + 4px);
-  background: var(--figure-dim);
-  opacity: 0.45;
-}
-
-.cal-gap.is-active {
-  background: var(--clay-bright);
-  opacity: 1;
 }
 
 /* Inset explicitly, in both directions.
