@@ -166,6 +166,9 @@ body::after {
 .wordmark {
   font-size: clamp(1.15rem, 2.4vw, 1.55rem);
   letter-spacing: 0.02em;
+
+  /* A title is one thing. Broken across two lines it stops looking like one. */
+  white-space: nowrap;
   color: var(--figure);
   text-decoration: none;
 }
@@ -979,9 +982,27 @@ body::after {
     overflow-y: auto;
   }
 
+  /* Side by side, 390px is not enough for the title and both counters: the
+     title broke in half and "8 years 4 months behind Diomedes" broke twice.
+     Two rows, and each gets the full width. */
   .topbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.35rem;
     height: auto;
     padding-block: 0.6rem;
+  }
+
+  /* Both notes sit on one baseline now, so they need more air between them
+     than the desktop gap gives: "home" and "8 years 4 months behind Diomedes"
+     ran together into one string. */
+  .counters {
+    justify-content: flex-end;
+    gap: 1.5rem;
+  }
+
+  .counter-k {
+    white-space: nowrap;
   }
 
   .stage {
@@ -999,6 +1020,7 @@ body::after {
   }
 
   .panel {
+    padding-bottom: calc(var(--rail-space, 13rem) + 1rem);
     border-top: 1px solid var(--rule);
     border-left: 0;
   }

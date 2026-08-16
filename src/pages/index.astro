@@ -629,6 +629,21 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         animateTo(index);
       }
 
+      // On a phone the rail is sticky at the bottom of a scrolling page, so
+      // the panel's last line scrolls underneath it and is never reachable.
+      // The rail's height is not a constant --- the labels wrap, the toggle
+      // wraps --- so it publishes what it actually is and the panel reserves
+      // exactly that.
+      const rail = document.querySelector<HTMLElement>(".rail")!;
+      // Border box, not `contentRect`: the rail's padding is part of what
+      // covers the panel, and `contentRect` leaves it out.
+      new ResizeObserver(() => {
+        document.documentElement.style.setProperty(
+          "--rail-space",
+          `${rail.getBoundingClientRect().height}px`,
+        );
+      }).observe(rail);
+
       // Percentages survive a resize; pixels do not, and the marker is redrawn
       // from the frame's current size each time.
       window.addEventListener("resize", () => drawShip(progress));
