@@ -65,22 +65,15 @@ const coastline = roughen(rawCoastline);
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
     {/* Inline and blocking, before anything is drawn.
-        The prologue is a five-second animation, and there are two visitors it
-        must not run for: one who has asked the system for less motion, and one
-        who has already watched it this session. Deciding that in the module
-        script below would be a decision taken after the first frame --- the
-        prologue would flash up and vanish, which is worse than either state. */}
+        The prologue is a five-second animation and one visitor must not be
+        shown it: whoever has asked the system for less motion. Deciding that
+        in the module script below would be a decision taken after the first
+        frame --- the prologue would flash up and vanish, which is worse than
+        either state. Everyone else gets it on every load, including a reload:
+        it is the page's front door, not a thing to be got past once. */}
     <script is:inline>
-      try {
-        if (
-          window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
-          sessionStorage.getItem("nostos") === "seen"
-        ) {
-          document.documentElement.dataset.stage = "voyage";
-        }
-      } catch {
-        // Storage can throw outright in a locked-down browser. The prologue is
-        // the default and costs nothing to leave standing.
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        document.documentElement.dataset.stage = "voyage";
       }
     </script>
     <meta
@@ -97,16 +90,25 @@ const coastline = roughen(rawCoastline);
       {/* Off by default and never autoplayed: a marked page that starts making
           noise is a page nobody hears twice. `preload="none"` keeps the 1.2MB
           off the first load entirely --- it is fetched when it is asked for. */}
-      <button
-        type="button"
-        class="sound"
-        id="sound"
-        aria-pressed="false"
-        aria-label="Play the music"
-      >
-        <span class="sound-glyph" aria-hidden="true"></span>
-        <span id="sound-label">Sound</span>
-      </button>
+      <div class="topbar-tools">
+        <button
+          type="button"
+          class="sound"
+          id="sound"
+          aria-pressed="false"
+          aria-label="Play the music"
+        >
+          <span class="sound-glyph" aria-hidden="true"></span>
+          <span id="sound-label">Sound</span>
+        </button>
+
+        {/* Only offered once there is something to go back from. It returns
+            the page to the harbour rather than sailing anything, so it says
+            that and not "replay". */}
+        <button type="button" class="restart" id="restart">
+          Back to Troy
+        </button>
+      </div>
       <audio id="track" src={track} loop preload="none"></audio>
 
       {/* The benchmark and the voyage, side by side. The comparison is the
@@ -267,15 +269,24 @@ const coastline = roughen(rawCoastline);
               nothing to read out until the voyage actually arrives. */}
           <div class="panel-prologue">
             <p class="panel-meta">
-              <span class="panel-book">The Odyssey</span>
+              <span class="panel-book">The voyage that should have happened</span>
             </p>
             <h2 class="panel-title">Nostos</h2>
             <p class="panel-epithet">νόστος — the return home by sea</p>
             <p class="panel-blurb">
-              Troy to Ithaca is about five hundred miles of open water, and
-              ancient fleets were measured crossing that much in a week. Every
-              Greek captain left the same harbour on the same day.
+              Every Greek captain turned for home out of the same harbour on the
+              same day. Troy to Ithaca is about five hundred miles of open
+              water — a week under sail at the speed an ancient fleet was
+              actually recorded making.
             </p>
+            <p class="panel-blurb">
+              So this is that week. Fair weather the whole way, a following
+              wind, and no god with a grievance: the Cyclops still has both his
+              eyes, and Poseidon has not yet been given the reason he was given.
+              Odysseus reaches Ithaca on day seven and the poem is four hundred
+              lines long.
+            </p>
+            <p class="panel-days">What happened instead comes afterwards.</p>
           </div>
 
           <div class="panel-scene">
@@ -1556,14 +1567,6 @@ const coastline = roughen(rawCoastline);
         window.setTimeout(reveal, MOORING_MS);
       }
 
-      function remember() {
-        try {
-          sessionStorage.setItem("nostos", "seen");
-        } catch {
-          // Not worth a word to the visitor: the cost is watching it again.
-        }
-      }
-
       /**
        * The voyage arrives.
        *
@@ -1587,7 +1590,6 @@ const coastline = roughen(rawCoastline);
         drawNostos(1);
         setStage("voyage");
         unlock();
-        remember();
 
         // The panel already holds Troy from the prologue; this re-runs its
         // entrance so it arrives with everything else rather than being found
@@ -1669,17 +1671,63 @@ const coastline = roughen(rawCoastline);
         drawNostos(1);
         setStage("voyage");
         unlock();
-        remember();
         markerLayer.classList.remove("is-arriving");
         fitMap();
         current = -1;
         show(0);
       }
 
+      /**
+       * Back to the harbour.
+       *
+       * The prologue is the page's argument, not a gate to be got past once,
+       * so it has to be reachable again --- by this control or by reloading.
+       * Everything the reveal touched is put back: the two clocks, the dash
+       * offsets it wrote inline, the stagger class, the camera, and the fact
+       * that the whole basin has been seen, which is what decides whether the
+       * next selection zooms.
+       */
+      function restartPrologue() {
+        cancelAnimationFrame(frameRequest);
+        cancelAnimationFrame(crossingFrame);
+        revealing = false;
+
+        progress = 0;
+        day = 0;
+        nostosProgress = 0;
+        current = -1;
+        hasSelected = false;
+
+        // The reveal writes these inline and nothing else clears them.
+        for (const line of [sailed, unsailed]) {
+          line.style.opacity = "";
+          line.style.transition = "";
+        }
+        markerLayer.classList.remove("is-arriving");
+
+        setStage("prologue");
+        lockToPrologue();
+        setScale(0, false);
+
+        el("nostos-day").textContent = "Day 0";
+        el("nostos-note").textContent = "at Troy";
+        el("day-count").textContent = "Day 0";
+        el("day-note").textContent = "still at Troy";
+        timeline.value = "0";
+
+        showText(0);
+        frameNostos();
+        drawShip(0);
+        drawNostos(0);
+      }
+
       markers[0]!.addEventListener("click", () => {
         if (stage() === "prologue") sailNostos();
       });
       document.querySelector("#skip")!.addEventListener("click", enterVoyage);
+      document
+        .querySelector("#restart")!
+        .addEventListener("click", restartPrologue);
 
       /**
        * The map can change size without the window doing anything.

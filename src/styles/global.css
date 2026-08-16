@@ -175,12 +175,21 @@ body::after {
 
 /* ---------- sound ---------- */
 
-.sound {
-  display: inline-flex;
-  gap: 0.4rem;
+/* The page's own controls, as opposed to the voyage's. They sit together and
+   push the counters to the far end of the bar. */
+.topbar-tools {
+  display: flex;
+  gap: 0.5rem;
   align-items: center;
   margin-right: auto;
   margin-left: 1.4rem;
+}
+
+.sound,
+.restart {
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: center;
   padding: 0.2rem 0.55rem;
   border: 1px solid var(--rule);
   border-radius: 2px;
@@ -198,9 +207,16 @@ body::after {
 }
 
 .sound:hover,
+.restart:hover,
 .sound[aria-pressed="true"] {
   border-color: var(--clay);
   color: var(--figure);
+}
+
+/* There is nothing to go back from until the voyage has arrived. `display`
+   rather than opacity, so it is off the tab order until it means something. */
+html:not([data-stage="voyage"]) .restart {
+  display: none;
 }
 
 /* Two bars, which grow into four when it is playing. */
@@ -982,6 +998,12 @@ html:not([data-stage="voyage"]) .counter.is-actual {
 .panel-blurb {
   margin: 0;
   font-size: 0.95rem;
+}
+
+/* The stop panel is one paragraph and sets no spacing. The opening is two, and
+   without this they run together into a wall. */
+.panel-blurb + .panel-blurb {
+  margin-top: 0.85rem;
 }
 
 .panel-days {
