@@ -8,7 +8,10 @@ then build. A fact sheet covering all eighteen stops of the voyage
 then the other captains' returns, a sailing-speed baseline, and which episodes
 survive in ancient art
 ([`bf7c6d5`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-DongyangLi6816/commit/bf7c6d5)).
-Every number sourced. Six and a half hours between those two commits alone.
+Every number sourced. Six and a half hours between those two commits alone: at
+the peak of it the agent had six research agents running at once, each of which
+had opened two of its own, eighteen of them searching in parallel for a page
+that did not exist yet.
 
 Then a design document — mockups, an illustration plan, a colour treatment.
 Around 565,000 tokens spent by then, a day and a half after the repo was set up,
