@@ -56,25 +56,26 @@ matter live in the browser, not in the document describing it.
 - **If I remove a constraint, keep one of your own.** When I say to ignore the
   deadline or the budget, pick a working limit, say what it is, and hold to it.
 
-## Verifying a change to the page
+## Verifying your own work
 
-A check you chose is a check you chose to pass. When you tell me an interaction
-works, the claim is about what a visitor does --- not about the code path you
-had in mind while writing it. Every user-facing fault in this prototype so far
-was found by a person operating the page, and the worst of them was found after
-you had measured it and reported a number.
+A check you choose is a check you chose to pass. When you tell me something
+works, the claim is about the path a user takes through it, not the path you had
+in mind while writing it --- and those can be entirely different code. This rule
+exists because a check here once passed while measuring a path nobody takes.
 
-- **Drive it the way a visitor does.** Real pointer events at real coordinates
-  on the rendered page. `element.click()` calls a handler; it does not exercise
-  the gesture, and the two can run entirely different code.
-- **Name the gesture you measured.** "I clicked the label column" and "I clicked
-  the rail" are different claims. If you did not test the one I described, say
-  that instead of reporting a number.
-- **Say what would falsify it, before you measure.** A number that could not
-  have come out wrong is not a verification.
-- **Taste is mine.** Whether something is too fast, too thin, or reads as the
-  wrong kind of object is not yours to settle by testing. Show me the state and
-  ask.
+- **Exercise the outermost surface.** Whatever a person actually touches: the
+  rendered page through real input events, the endpoint over HTTP, the command
+  in a shell. Calling the handler underneath is a different test.
+  `element.click()` runs a listener; it does not perform the gesture.
+- **Count the ways in.** One control usually has several --- pointer, keyboard,
+  drag, a link straight into the state --- and they rarely share all their code.
+  Check each, or tell me which you left.
+- **Name what you exercised**, in the words I used for it. If it was not the
+  thing I described, say so instead of reporting a number.
+- **Say what would falsify it, before you measure.** A result that could not
+  have come out wrong is not evidence.
+- **Taste is mine.** Too fast, too thin, reads as the wrong kind of object:
+  none of that is settled by a measurement. Show me the state and ask.
 
 ## The checks (your sensors)
 
