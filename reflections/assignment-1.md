@@ -2,12 +2,13 @@
 
 ## The breakthrough
 
-For most of this build I had nothing that ran. I had a fully enumerated fact
-sheet on Odysseus's stops, a second on the other captains' returns, a third on
-which episodes survive in ancient art
-([`bf7c6d5`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-DongyangLi6816/commit/bf7c6d5)),
-and a long design document. Around 565,000 tokens of research. Zero lines of
-site code.
+For most of this build I had nothing that ran. Three fact sheets — the stops,
+the other captains' returns, which episodes survive in ancient art
+([`bf7c6d5`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-DongyangLi6816/commit/bf7c6d5))
+— and a design document with mockups, an illustration plan and a colour
+treatment
+([`1f70cf3`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-DongyangLi6816/commit/1f70cf3)).
+Around 565,000 tokens. Zero lines of site code.
 
 Then I sent one link to a site doing roughly what I wanted and said "core
 interaction like this is fine, let's get a first version out." Within the hour
@@ -17,10 +18,11 @@ there was a working map, a timeline, and a green `pnpm check`
 The breakthrough was seeing *why*. My earlier prompts asked for "a detailed
 design", "refine this plan", "process all the images" — none of which can be
 finished, or be wrong in a way anything detects. A design document never fails a
-check. And the four bugs that actually mattered — a panel covering Troy, markers
-drifting off a letterboxed SVG, the whole map vanishing on phones, my own
-overlap test passing while four markers sat stacked in the browser — were
-invisible in every document I wrote. They existed only on screen.
+check, which is why `1f70cf3` is committed as evidence: almost none of it
+survived contact with a browser. The bugs that mattered — a panel covering Troy,
+markers drifting off a letterboxed SVG, the map vanishing on phones, my own
+overlap test passing while four markers sat stacked — were invisible in every
+document I wrote.
 
 I had researched the certain part exhaustively and left the uncertain part in
 prose.
