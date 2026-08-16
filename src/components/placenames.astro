@@ -27,6 +27,16 @@ interface Place {
   lat: number;
   /** Point size in map units. Regions are set larger than towns. */
   size?: number;
+  /**
+   * Smallest zoom this name is drawn at.
+   *
+   * Eleven of the fifteen names Homer gives fall inside the Aegean and the
+   * Peloponnese, which at the whole-map view is more lettering than that
+   * corner can hold. The regions are always there --- they are what makes the
+   * east look named and the west look blank --- and the towns arrive as the
+   * map is zoomed into them, which is what a chart does.
+   */
+  from?: number;
   /** Egypt sits off the east edge of this frame, so its label runs off it. */
   anchor?: "end";
 }
@@ -37,17 +47,17 @@ interface Place {
 // a name the visitor cannot read is worse than a name that is not there.
 const PLACES: Place[] = [
   { name: "Thrēkē", lon: 24.6, lat: 41.8, size: 15 },
-  { name: "Lēmnos", lon: 25.2, lat: 39.75 },
-  { name: "Lesbos", lon: 26.4, lat: 39.1 },
+  { name: "Lēmnos", lon: 25.2, lat: 39.75, from: 1.6 },
+  { name: "Lesbos", lon: 26.4, lat: 39.1, from: 1.6 },
   { name: "Olympos", lon: 22.3, lat: 40.2 },
-  { name: "Dōdōnē", lon: 21.25, lat: 39.95 },
-  { name: "Euboia", lon: 23.95, lat: 38.7 },
+  { name: "Dōdōnē", lon: 21.25, lat: 39.95, from: 1.6 },
+  { name: "Euboia", lon: 23.95, lat: 38.7, from: 1.6 },
   { name: "Athēnai", lon: 23.75, lat: 38 },
-  { name: "Ēlis", lon: 21.45, lat: 38 },
-  { name: "Argos", lon: 22.75, lat: 37.55 },
-  { name: "Lakedaimōn", lon: 22.6, lat: 36.95 },
-  { name: "Pylos", lon: 21.4, lat: 36.6 },
-  { name: "Zakynthos", lon: 20.5, lat: 37.4 },
+  { name: "Ēlis", lon: 21.45, lat: 38, from: 2.4 },
+  { name: "Argos", lon: 22.75, lat: 37.55, from: 1.6 },
+  { name: "Lakedaimōn", lon: 22.6, lat: 36.95, from: 2.4 },
+  { name: "Pylos", lon: 21.4, lat: 36.6, from: 2.4 },
+  { name: "Zakynthos", lon: 20.5, lat: 37.4, from: 2.4 },
   { name: "Krētē", lon: 24.9, lat: 35.15, size: 15 },
   { name: "Libyē", lon: 20.5, lat: 31.2, size: 15 },
   { name: "Aigyptos", lon: 30.35, lat: 31.1, size: 15, anchor: "end" },
@@ -99,6 +109,7 @@ if (outside.length > 0) {
       <text
         x={p.x}
         y={p.y}
+        data-from={p.from ?? 1}
         style={[
           p.size ? `font-size:calc(${p.size}px / var(--z, 1))` : "",
           // Inline, not a presentation attribute: the stylesheet sets

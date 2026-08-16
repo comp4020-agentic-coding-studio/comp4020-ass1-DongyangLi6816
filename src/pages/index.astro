@@ -251,6 +251,14 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
       const map = document.querySelector<HTMLElement>("#map")!;
       const clay = document.querySelector<SVGPatternElement>("#clay-ground")!;
 
+      // Names arrive as the map is zoomed into them. Eleven of the fifteen sit
+      // in the Aegean and the Peloponnese, which is more lettering than that
+      // corner holds at the whole-map view; the regions stay, because the east
+      // looking named against a blank west is the point.
+      const namesByZoom = [
+        ...document.querySelectorAll<SVGTextElement>(".placenames text[data-from]"),
+      ].map((el) => ({ el, from: Number(el.dataset.from) }));
+
       const el = (id: string) => document.getElementById(id)!;
       const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
 
@@ -353,6 +361,9 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         // The clay tooth is a surface, not a feature of the terrain: left to
         // scale it stops being tooth at about 1.5x and becomes polka dots.
         clay.setAttribute("patternTransform", `scale(${1 / z})`);
+        for (const name of namesByZoom) {
+          name.el.classList.toggle("is-held", z < name.from - 0.001);
+        }
         drawShip(progress);
       }
 
@@ -540,6 +551,9 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
           frame.style.setProperty("--z", String(z));
           map.classList.toggle("is-zoomed", z > 1.001);
           clay.setAttribute("patternTransform", `scale(${1 / z})`);
+          for (const name of namesByZoom) {
+            name.el.classList.toggle("is-held", z < name.from - 0.001);
+          }
         }
         hasSelected = true;
         const dwell = dwellTime(Math.abs(toDay - fromDay));
@@ -1028,6 +1042,12 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
       });
 
       show(0);
+
+      // The view has to be applied once even though nothing has moved: it is
+      // what publishes the zoom to everything that reads it, and until it runs
+      // every name is drawn, including the ones that only belong at a closer
+      // scale.
+      applyView(0);
     </script>
   </body>
 </html>

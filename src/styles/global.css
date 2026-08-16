@@ -403,6 +403,10 @@ body::after {
   pointer-events: none;
 }
 
+.placenames text.is-held {
+  opacity: 0;
+}
+
 .placenames text {
   fill: var(--figure);
   font-family: var(--serif);
@@ -411,6 +415,7 @@ body::after {
   text-anchor: middle;
   text-transform: uppercase;
   opacity: 0.26;
+  transition: opacity 0.3s ease;
 }
 
 .malea path {
