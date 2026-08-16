@@ -324,10 +324,9 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         ty = fit(ty, f.h, map.clientHeight, off.y);
       }
 
-      function applyView(animated = true) {
+      function applyView(duration = 480) {
         clampView();
-        frame.style.transitionDuration =
-          animated && !stillness.matches ? "" : "0ms";
+        frame.style.transitionDuration = stillness.matches ? "0ms" : `${duration}ms`;
         frame.style.transform = `translate(${tx}px, ${ty}px) scale(${z})`;
         frame.style.setProperty("--z", String(z));
         map.classList.toggle("is-zoomed", z > 1.001);
@@ -357,7 +356,7 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         tx -= px * (ratio - 1);
         ty -= py * (ratio - 1);
         z = next;
-        applyView(false);
+        applyView(0);
       }
 
       const clampZoom = (value: number) => Math.min(MAX_ZOOM, Math.max(1, value));
@@ -421,12 +420,12 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
       }
 
-      function drawShip(progress: number) {
+      function drawShip(progress: number): { x: number; y: number } | null {
         // Layout size, not the bounding rect: the ship is a child of the frame
         // and already inherits its zoom, so measuring the *scaled* box would
         // apply the scale twice and fling the ship off the map.
         const box = frameBox();
-        if (box.w === 0) return;
+        if (box.w === 0) return null;
 
         const { cum, total } = metrics(box);
         const travelled = lengthAt(progress, cum);
@@ -478,6 +477,8 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
           "--sailed",
           `${(progress / (STOPS.length - 1)) * 100}%`,
         );
+
+        return here;
       }
 
       function describeLag(day: number): string {
@@ -736,7 +737,7 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         map.classList.add("is-panning");
         tx += dx;
         ty += dy;
-        applyView(false);
+        applyView(0);
       });
 
       const endPointer = (event: PointerEvent) => {
@@ -757,7 +758,7 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         }, true),
       );
 
-      window.addEventListener("resize", () => applyView(false));
+      window.addEventListener("resize", () => applyView(0));
 
       // ---------- the calendar lane ----------
 
@@ -879,10 +880,21 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
        * falls between, and the panel shows whichever stop is nearest. Nothing
        * is animated while a finger is down --- the finger is the animation.
        *
-       * The camera holds still through all of it and only eases in when the
-       * drag ends. A map that chases the thumb is unusable.
+       * The camera follows, because the interesting thing about scrubbing is
+       * watching the ship cross. It follows on a 90ms transition rather than
+       * instantly: at zero the map twitches on every input event, and at the
+       * 480ms the rest of the view uses it lags behind the thumb. Ninety reads
+       * as a camera with a little weight.
        */
+      const SCRUB_FOLLOW_MS = 90;
       let scrubbing = false;
+
+      /** Keep the ship in the middle of the window while the thumb moves. */
+      function followShip(point: { x: number; y: number } | null) {
+        if (!point) return;
+        centreOn(point.x, point.y, Math.max(z, AUTO_ZOOM));
+        applyView(SCRUB_FOLLOW_MS);
+      }
 
       function dayBetween(value: number): number {
         const i = Math.max(0, Math.min(STOPS.length - 2, Math.floor(value)));
@@ -894,7 +906,7 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         cancelAnimationFrame(frameRequest);
         progress = value;
         day = dayBetween(value);
-        drawShip(progress);
+        followShip(drawShip(progress));
         el("day-count").textContent = `Day ${day.toLocaleString()}`;
         el("day-note").textContent =
           day === 0 ? "still at Troy" : describeLag(day);
@@ -905,6 +917,11 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
 
       timeline.addEventListener("pointerdown", () => {
         scrubbing = true;
+        // Enter the following zoom before the first move, so the drag starts
+        // from the scale it is going to stay at rather than jumping into it a
+        // frame later.
+        hasSelected = true;
+        followShip(drawShip(progress));
       });
 
       timeline.addEventListener("input", () => {
@@ -980,7 +997,7 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
           if (e.key === "ArrowRight") tx -= step;
           if (e.key === "ArrowUp") ty += step;
           if (e.key === "ArrowDown") ty -= step;
-          applyView(false);
+          applyView(0);
           return;
         }
 
