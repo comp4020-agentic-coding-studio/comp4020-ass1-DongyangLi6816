@@ -202,6 +202,9 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
       const frame = document.querySelector<HTMLElement>(".map-frame")!;
       const ship = document.querySelector<SVGSVGElement>("#ship")!;
       const sailed = document.querySelector<SVGPolylineElement>("#route-sailed")!;
+      const unsailed = [
+        ...document.querySelectorAll<SVGPolylineElement>(".route polyline"),
+      ].find((line) => line.id !== "route-sailed")!;
       const panel = document.querySelector<HTMLElement>("#scene")!;
       const map = document.querySelector<HTMLElement>("#map")!;
       const clay = document.querySelector<SVGPatternElement>("#clay-ground")!;
@@ -422,11 +425,14 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
           (here.y / 100) * box.h
         }px) translate(-50%, -50%) rotate(${heading}deg)${mirror} scale(${1 / z})`;
 
-        // The dashes are in device pixels --- `vector-effect: non-scaling-stroke`
-        // generates the stroke after every transform --- so the lengths have to
-        // carry the zoom that the geometry above deliberately does not.
-        sailed.style.strokeDasharray = String(total * z);
-        sailed.style.strokeDashoffset = String((total - travelled) * z);
+        // `vector-effect: non-scaling-stroke` holds the stroke *width* steady
+        // under the map's zoom. It does not hold the dash pattern: those
+        // lengths scale with it, which is why a 4px dash reads as solid at 6x
+        // and why the pattern here is divided back down. The reveal is measured
+        // in the same pre-zoom space, so it carries no factor at all.
+        sailed.style.strokeDasharray = String(total);
+        sailed.style.strokeDashoffset = String(total - travelled);
+        unsailed.style.strokeDasharray = `${4 / z} ${6 / z}`;
       }
 
       function describeLag(day: number): string {
