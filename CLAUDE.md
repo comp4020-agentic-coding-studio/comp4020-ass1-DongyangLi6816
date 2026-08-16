@@ -36,6 +36,26 @@ and see `spec/README.md` for how the checks in this repo relate to it.
   be.
 - Commit when the checks pass. Never commit a red state.
 
+## Ship something that runs before you write about it
+
+Research and design have no natural stopping point; a check does. Left alone you
+will keep refining a plan long past the point where a rough running version
+would have answered the question faster and more truthfully --- the bugs that
+matter live in the browser, not in the document describing it.
+
+- **The first deliverable is a running version, however rough.** When the thing
+  under discussion will eventually run, build the smallest version that does,
+  then write about it. If you genuinely need a document first, say so in one
+  line and wait for me.
+- **Say what would make it enough, before you start.** Any research or search
+  pass states its stopping condition up front and stops there. If it turns out
+  not to be enough, come back and say why rather than quietly continuing.
+- **"All", "complete", "detailed" and "thorough" mean the first bounded slice.**
+  Do the slice, name what you left out, let me ask for more. Never expand an
+  unbounded word into unbounded work.
+- **If I remove a constraint, keep one of your own.** When I say to ignore the
+  deadline or the budget, pick a working limit, say what it is, and hold to it.
+
 ## The checks (your sensors)
 
 CI runs these on every push once your repo is public. GitHub's checks UI shows
