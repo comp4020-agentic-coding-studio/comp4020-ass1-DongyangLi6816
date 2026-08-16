@@ -190,7 +190,7 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
           id="timeline"
           min="0"
           max={STOPS.length - 1}
-          step="1"
+          step="any"
           value="0"
           aria-describedby="rail-hint"
         />
@@ -234,6 +234,9 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         ...document.querySelectorAll<HTMLButtonElement>(".marker"),
       ];
       const ticks = [...document.querySelectorAll<HTMLElement>(".rail-tick")];
+      ticks.forEach((tick, i) => {
+        tick.style.left = `${(i / (STOPS.length - 1)) * 100}%`;
+      });
       const frame = document.querySelector<HTMLElement>(".map-frame")!;
       const ship = document.querySelector<SVGSVGElement>("#ship")!;
       const sailed = document.querySelector<SVGPolylineElement>("#route-sailed")!;
@@ -468,6 +471,13 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         sailed.style.strokeDasharray = String(total);
         sailed.style.strokeDashoffset = String(total - travelled);
         unsailed.style.strokeDasharray = `${4 / z} ${6 / z}`;
+
+        // The rail's filled track is the same fact as the drawn-in route, so
+        // it is driven from the same number rather than from the input's value.
+        timeline.style.setProperty(
+          "--sailed",
+          `${(progress / (STOPS.length - 1)) * 100}%`,
+        );
       }
 
       function describeLag(day: number): string {
@@ -562,8 +572,16 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         frameRequest = requestAnimationFrame(step);
       }
 
-      function show(index: number) {
-        if (index === current) return;
+      /**
+       * Everything about a stop except the movement: the panel, the pressed
+       * states, the announcement.
+       *
+       * Split out from `show` because a drag needs all of this and none of the
+       * animation --- the finger is already providing the movement, and
+       * restarting a crossing on every input event is what made scrubbing
+       * judder.
+       */
+      function showText(index: number) {
         current = index;
         const stop = STOPS[index]!;
 
@@ -587,8 +605,6 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
               : `${stop.days.toLocaleString()} days — ${stop.daysNote}.`;
         el("scene-days").classList.toggle("is-gap", stop.days === null);
 
-        animateTo(index);
-
         markers.forEach((m, i) => {
           m.setAttribute("aria-pressed", String(i === index));
           m.classList.toggle("is-active", i === index);
@@ -598,12 +614,10 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
           t.classList.toggle("is-active", i === index);
           t.classList.toggle("is-past", i < index);
         });
-        marks.forEach(({ el }, i) => {
-          el.classList.toggle("is-active", i === index);
-          el.classList.toggle("is-past", i < index);
+        marks.forEach(({ el: mark }, i) => {
+          mark.classList.toggle("is-active", i === index);
+          mark.classList.toggle("is-past", i < index);
         });
-
-        if (timeline.valueAsNumber !== index) timeline.value = String(index);
 
         // Announced from the arrival value, not the value the counter happens
         // to be rolling through: a screen reader should hear where the voyage
@@ -613,6 +627,13 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
           "aria-valuetext",
           `Stop ${index + 1} of ${STOPS.length}, ${stop.name}. Day ${arrival.toLocaleString()}. ${describeLag(arrival)}.`,
         );
+      }
+
+      function show(index: number) {
+        if (index === current) return;
+        showText(index);
+        if (timeline.valueAsNumber !== index) timeline.value = String(index);
+        animateTo(index);
       }
 
       // Percentages survive a resize; pixels do not, and the marker is redrawn
@@ -846,7 +867,82 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
       // it cannot see: the fact matters more than the reveal.
       setScale(stillness.matches ? 1 : 0, false);
 
-            timeline.addEventListener("input", () => show(timeline.valueAsNumber));
+            // ---------- scrubbing ----------
+
+      /**
+       * Dragging the rail scrubs the voyage instead of stepping it.
+       *
+       * The control used to be `step="1"`, so a drag was fourteen jumps and
+       * every one of them restarted the crossing animation from wherever the
+       * last had got to. It is continuous now: the position under the thumb is
+       * the ship's position, the day counter reads between the two stops it
+       * falls between, and the panel shows whichever stop is nearest. Nothing
+       * is animated while a finger is down --- the finger is the animation.
+       *
+       * The camera holds still through all of it and only eases in when the
+       * drag ends. A map that chases the thumb is unusable.
+       */
+      let scrubbing = false;
+
+      function dayBetween(value: number): number {
+        const i = Math.max(0, Math.min(STOPS.length - 2, Math.floor(value)));
+        const t = Math.max(0, Math.min(1, value - i));
+        return Math.round(dayAt(i) + (dayAt(i + 1) - dayAt(i)) * t);
+      }
+
+      function scrubTo(value: number) {
+        cancelAnimationFrame(frameRequest);
+        progress = value;
+        day = dayBetween(value);
+        drawShip(progress);
+        el("day-count").textContent = `Day ${day.toLocaleString()}`;
+        el("day-note").textContent =
+          day === 0 ? "still at Troy" : describeLag(day);
+
+        const nearest = Math.round(value);
+        if (nearest !== current) showText(nearest);
+      }
+
+      timeline.addEventListener("pointerdown", () => {
+        scrubbing = true;
+      });
+
+      timeline.addEventListener("input", () => {
+        if (scrubbing) scrubTo(timeline.valueAsNumber);
+        else show(Math.round(timeline.valueAsNumber));
+      });
+
+      // Commit on release: snap to the nearest stop and bring the map with it.
+      const commit = () => {
+        if (!scrubbing) return;
+        scrubbing = false;
+        const index = Math.round(timeline.valueAsNumber);
+        timeline.value = String(index);
+        current = -1;
+        show(index);
+      };
+      timeline.addEventListener("pointerup", commit);
+      timeline.addEventListener("pointercancel", commit);
+      timeline.addEventListener("change", commit);
+
+      // `step="any"` makes the arrow keys move by a hair, which is useless on a
+      // control whose values are fourteen places. They move by whole stops.
+      timeline.addEventListener("keydown", (event) => {
+        const moves: Record<string, number> = {
+          ArrowRight: current + 1,
+          ArrowUp: current + 1,
+          ArrowLeft: current - 1,
+          ArrowDown: current - 1,
+          Home: 0,
+          End: STOPS.length - 1,
+        };
+        const next = moves[event.key];
+        if (next === undefined) return;
+        event.preventDefault();
+        show(Math.max(0, Math.min(STOPS.length - 1, next)));
+      });
+
+
       markers.forEach((m, i) => m.addEventListener("click", () => show(i)));
       ticks.forEach((t, i) => t.addEventListener("click", () => show(i)));
 
