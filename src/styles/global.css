@@ -1,12 +1,37 @@
+/* EB Garamond, latin subset, self-hosted. SIL Open Font Licence 1.1 --- the
+   licence text ships beside the files in fonts/OFL.txt. Vite fingerprints these
+   URLs and rewrites them under the deploy base, which is why they live in src/
+   and are referenced relatively rather than sitting in public/ behind a
+   hard-coded base path. */
+@font-face {
+  font-family: "EB Garamond";
+  font-style: normal;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url("./fonts/eb-garamond-latin-roman.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "EB Garamond";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/eb-garamond-latin-italic.woff2") format("woff2");
+}
+
 /* Palette from Attic pottery: black slip ground, fired clay figures, ochre.
    The sea is the slip; the land sits a shade above it; the ghost benchmark is
-   the only cool hue on the page, so an absence reads as one. */
+   the only cool hue on the page, so an absence reads as one.
+
+   Land and sea used to sit four points apart on the same axis, which read as
+   one flat brown-grey field. They now split: land warm, sea cool, so the
+   coastline is a boundary between two materials rather than a hairline. */
 :root {
   --slip: #14100c;
-  --sea: #171c22;
-  --land: #241d16;
-  --land-edge: #3a2e22;
-  --panel: #1c1610;
+  --sea: #10151a;
+  --land: #241a11;
+  --land-edge: #6b4f31;
+  --panel: #1a140e;
   --rule: #3a2e22;
   --figure: #f0e2c6;
   --figure-dim: #a8977e;
@@ -14,9 +39,27 @@
   --clay-bright: #e07c3d;
   --gold: #d1a13a;
   --ghost: #7f97a1;
-  --topbar-h: 4rem;
-  --rail-h: 6.5rem;
+
+  /* Quoted rather than bare: inside a custom property stylelint cannot tell a
+     font name from a keyword, and lowercases it. */
+  --serif: "EB Garamond", "Palatino", "Iowan Old Style", "Georgia", serif;
+  --mono: ui-monospace, "SF Mono", "Menlo", monospace;
+  --topbar-h: 5rem;
+  --rail-h: 7rem;
+  --band-h: 14px;
   --panel-w: 23rem;
+
+  /* ---------- ornament ----------
+
+     Three tiles, all inline so nothing can 404 on the deployed sub-path:
+
+     grain    fired clay is never evenly coloured. fractalNoise desaturated to
+              grey and blended over the whole page at low opacity.
+     meander  the Greek key. One hook per 20px --- below about 12px tall the
+              hook's inner turn closes up and the band degrades into notches. */
+  --grain-strength: 0.16;
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23g)'/%3E%3C/svg%3E");
+  --meander: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='14'%3E%3Cpath d='M0 13h20M2 13V2h13v8H8v-4' fill='none' stroke='%236b4f31' stroke-width='1.5' stroke-linecap='square'/%3E%3C/svg%3E");
 }
 
 * {
@@ -29,14 +72,36 @@ body {
 }
 
 body {
+  position: relative;
   margin: 0;
-  background: var(--slip);
+
+  /* A fired pot is warmest where the flame reached it. The gradient is the
+     kiln; the flat slip underneath is the fallback. */
+  background:
+    radial-gradient(120% 80% at 50% -10%, #1e1610 0%, var(--slip) 55%),
+    var(--slip);
   color: var(--figure);
-  font:
-    400 16px/1.6 Georgia,
-    "Iowan Old Style",
-    serif;
+
+  /* EB Garamond runs small for its size --- 17px here sits where 16px Georgia
+     did. */
+  font: 400 17px/1.62 var(--serif);
   overflow: hidden;
+}
+
+/* The clay grain. Fixed and inert, above the page so it covers map and panel
+   alike, but never in the way of a click or a focus ring. */
+body::after {
+  content: "";
+  position: fixed;
+  z-index: 90;
+  inset: 0;
+  background-image: var(--grain);
+  opacity: var(--grain-strength);
+
+  /* soft-light, not overlay: overlay pushes mid-tones apart and desaturated
+     the one element that has to stay hot, the active marker. */
+  mix-blend-mode: soft-light;
+  pointer-events: none;
 }
 
 .visually-hidden {
@@ -58,20 +123,48 @@ body {
 /* ---------- top bar ---------- */
 
 .topbar {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
   height: var(--topbar-h);
-  padding: 0 clamp(0.9rem, 3vw, 2rem);
-  border-bottom: 1px solid var(--rule);
+
+  /* The key band is drawn inside the bar, so the bar has to reserve its height
+     or the counters' last line sits under the ornament. */
+  padding: 0 clamp(0.9rem, 3vw, 2rem) var(--band-h);
   background: var(--slip);
 }
 
+/* The key runs under the top bar and over the rail, so the interactive middle
+   of the page sits inside a border the way a scene sits inside one on a pot. */
+.topbar::after,
+.rail::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  height: var(--band-h);
+  background-image: var(--meander);
+  background-repeat: repeat-x;
+  background-size: auto var(--band-h);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.topbar::after {
+  right: 0;
+  bottom: 0;
+}
+
+.rail::before {
+  top: 0;
+  right: 0;
+  scale: 1 -1;
+}
+
 .wordmark {
-  font-family: Palatino, "Palatino Linotype", Georgia, serif;
-  font-size: clamp(1.05rem, 2.4vw, 1.4rem);
-  letter-spacing: 0.01em;
+  font-size: clamp(1.15rem, 2.4vw, 1.55rem);
+  letter-spacing: 0.02em;
   color: var(--figure);
   text-decoration: none;
 }
@@ -86,7 +179,7 @@ body {
   gap: 0.05rem;
   margin: 0;
   text-align: right;
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--mono);
   font-variant-numeric: tabular-nums;
 }
 
@@ -158,10 +251,106 @@ body {
 }
 
 .coastline path {
-  fill: var(--land);
+  fill: url("#clay-ground") var(--land);
   stroke: var(--land-edge);
-  stroke-width: 1;
+  stroke-width: 1.2;
   vector-effect: non-scaling-stroke;
+
+  /* The coastline is the one incised line on the map, so it gets the wobble
+     of a hand-cut one. Filtering the paths rather than the whole layer keeps
+     the markers and the route perfectly sharp on top. */
+  filter: url("#incised");
+}
+
+/* ---------- sea marks ---------- */
+
+.seamarks {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Faint enough to be the surface the map is drawn on rather than a screen over
+   it: the route, the markers and the coastline all have to win against this. */
+.rhumbs-lesser,
+.rhumbs-principal {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.rhumbs-lesser {
+  stroke: var(--clay);
+  stroke-width: 0.5;
+  opacity: 0.09;
+}
+
+.rhumbs-principal {
+  stroke: var(--gold);
+  stroke-width: 0.6;
+  opacity: 0.15;
+}
+
+
+.rose circle {
+  fill: none;
+  stroke: var(--clay);
+  stroke-width: 1;
+  opacity: 0.3;
+  vector-effect: non-scaling-stroke;
+}
+
+.rose-major {
+  fill: var(--clay);
+  opacity: 0.45;
+}
+
+.rose-minor {
+  fill: var(--clay);
+  opacity: 0.28;
+}
+
+.dolphins path {
+  fill: var(--clay);
+  opacity: 0.3;
+}
+
+
+/* ---------- place names ---------- */
+
+/* Faint enough that the map reads first and the lettering second, but present
+   enough that the empty western basin is legible as an absence. */
+.placenames {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.placenames text {
+  fill: var(--figure);
+  font-family: var(--serif);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-anchor: middle;
+  text-transform: uppercase;
+  opacity: 0.26;
+}
+
+.malea path {
+  stroke: var(--figure);
+  stroke-width: 1;
+  opacity: 0.3;
+  vector-effect: non-scaling-stroke;
+}
+
+.malea text {
+  font-size: 11px;
+  font-style: italic;
+  letter-spacing: 0.1em;
+  text-transform: none;
+  opacity: 0.34;
 }
 
 .route {
@@ -219,7 +408,7 @@ body {
   border-radius: 50%;
   background: var(--slip);
   color: var(--figure-dim);
-  font-family: ui-monospace, Menlo, monospace;
+  font-family: var(--mono);
   font-size: 0.75rem;
   transition:
     background 0.25s ease,
@@ -229,10 +418,16 @@ body {
 
 .marker-name {
   max-width: 8rem;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   line-height: 1.25;
   color: transparent;
   text-align: center;
+
+  /* The label lands on sea, on land, or across the coastline depending on the
+     stop, so it carries its own ground rather than trusting the backdrop. */
+  text-shadow:
+    0 0 4px var(--slip),
+    0 0 8px var(--slip);
   transition: color 0.25s ease;
 }
 
@@ -247,9 +442,12 @@ body {
 
 .marker.is-active .marker-dot {
   border-color: var(--gold);
-  background: var(--clay);
-  color: var(--slip);
-  box-shadow: 0 0 0 5px rgb(193 99 44 / 18%);
+  background: var(--clay-bright);
+  color: #1a0d05;
+  font-weight: 500;
+  box-shadow:
+    0 0 0 4px rgb(224 124 61 / 22%),
+    0 0 14px 2px rgb(224 124 61 / 30%);
 }
 
 .marker.is-active .marker-name,
@@ -264,7 +462,9 @@ body {
   overflow-y: auto;
   padding: clamp(1.1rem, 2.5vw, 1.9rem);
   border-left: 1px solid var(--rule);
-  background: var(--panel);
+  background:
+    linear-gradient(180deg, #221a12 0%, var(--panel) 45%),
+    var(--panel);
 }
 
 .panel-meta {
@@ -282,12 +482,12 @@ body {
   border: 1px solid var(--gold);
   border-radius: 50%;
   color: var(--gold);
-  font-family: ui-monospace, Menlo, monospace;
+  font-family: var(--mono);
   font-size: 0.8rem;
 }
 
 .panel-book {
-  font-family: ui-monospace, Menlo, monospace;
+  font-family: var(--mono);
   font-size: 0.62rem;
   letter-spacing: 0.13em;
   text-transform: uppercase;
@@ -296,7 +496,7 @@ body {
 
 .panel-title {
   margin: 0;
-  font-family: Palatino, "Palatino Linotype", Georgia, serif;
+  font-family: var(--serif);
   font-size: clamp(1.5rem, 3.6vw, 2rem);
   font-weight: 400;
   line-height: 1.15;
@@ -318,7 +518,7 @@ body {
 
 .panel-days {
   margin: 1rem 0 0;
-  font-family: ui-monospace, Menlo, monospace;
+  font-family: var(--mono);
   font-size: 0.72rem;
   line-height: 1.5;
   color: var(--gold);
@@ -338,8 +538,7 @@ body {
 .rail {
   position: relative;
   height: var(--rail-h);
-  padding: 0.85rem clamp(0.9rem, 3vw, 2rem) 0.5rem;
-  border-top: 1px solid var(--rule);
+  padding: calc(var(--band-h) + 0.6rem) clamp(0.9rem, 3vw, 2rem) 0.5rem;
   background: var(--slip);
 }
 
@@ -424,6 +623,13 @@ body {
   }
 
   .marker-name {
+    display: none;
+  }
+
+  /* At 390px the frame is a quarter of its desktop width, so 12px lettering
+     lands at 3px --- smudges, not names. Same rule as on the desktop map: a
+     name the visitor cannot read is worse than no name. */
+  .placenames {
     display: none;
   }
 
