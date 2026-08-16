@@ -215,26 +215,46 @@ Renaming the repo means changing the base in all three places:
 `pnpm typecheck` runs `astro check`, not bare `tsc` --- `tsc` cannot parse
 `.astro` files and would report a green it hasn't earned.
 
-## The interface does not explain itself
+## Frontend design
 
-Nothing on the page explains how the page works. No hint under a control, no
-note saying what a colour means, no caption describing what the visitor is
-looking at. Every one of those written here was deleted within the hour, and
-every one had been added to patch a design that wasn't saying it: a note
-explaining what two colours meant, when the fix was to stop using two colours;
-a hint telling the visitor to drag the timeline, when the control's own label
-already said so.
+Anthropic's rules, quoted from the `frontend-design` skill in
+[`anthropics/claude-code`](https://github.com/anthropics/claude-code/blob/main/plugins/frontend-design/skills/frontend-design/SKILL.md).
+They are here rather than loaded because this repo has no plugin to load them
+from. The failure they exist for has a name: given no explicit direction a
+model returns the highest-probability answer, and the most common "nice button"
+in the training data is Inter, a purple gradient and a card grid ---
+*distributional convergence*.
 
-State it the way round that works, because a bare "don't" is weak here --- the
-model reads a prohibition and still writes the sentence, so pair it with the
-test it is supposed to fail:
+On words:
 
-> **Every element is either something the visitor operates or something the
-> source says. Anything that is neither is scaffolding: take it out, and fix
-> whatever made it seem necessary.**
+- "Words appear in a design for one reason: to make it easier to understand,
+  and therefore easier to use."
+- "Let each element do exactly one job. A label labels, an example
+  demonstrates, and nothing quietly does double duty."
+- "Write from the end user's side of the screen. Name things by what people
+  control and recognize, never by how the system is built."
+- "Use active voice as default. A control should say exactly what happens when
+  it's used: 'Save changes,' not 'Submit.'"
+- "Being specific is always better than being clever."
+- "Keep the register conversational and tuned: plain verbs, sentence case, no
+  filler."
 
-Accessible names, labels and `aria-*` text are not this. They are the
-interface, spoken.
+On everything that is not words:
+
+- "Structural devices, numbering, eyebrows, dividers, labels, should encode
+  something true about the content, not decorate it." Numbered markers are
+  "only appropriate if the content actually is a sequence."
+
+On the order of work:
+
+- "Work in two passes. First, brainstorm a short design plan based on the
+  human's design brief... Then review that plan against the brief before
+  building." Only then write the code.
+
+What these caught here, when nothing else did: a note beside the scale toggle
+that labelled, explained and quoted a statistic all at once, and a calendar
+lane that spent a second colour saying what its widths already said while clay
+meant both duration and progress at the same time.
 
 ## Everything written into this repo is in English
 
