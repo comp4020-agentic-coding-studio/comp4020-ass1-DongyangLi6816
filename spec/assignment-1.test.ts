@@ -5,23 +5,43 @@ import { describe, expect, it } from "vitest";
 
 // Turns the assignment-1 spec (assessments/assignment-1) into tests.
 //
-// Left to the marker, because no test can hold them: that the idea is one
-// people should understand and is carried all the way, that the register has a
-// point of view, that the page holds up at both marking viewports under a
-// resize mid-interaction and a tab through it, and that the process evidence
-// reads as skilled direction rather than retries. `pnpm check:evidence` covers
-// the presence of that evidence; only a person can judge its quality.
-
-// The core interaction, named plainly enough to test — the spec asks for
-// exactly this. Set SELECTORS once the mechanic is decided:
+// The spec's mark for the artefact goes to one that "holds up under use it
+// wasn't designed for: the keyboard, a resize mid-interaction". This file used
+// to record both as things no test could hold and leave them to the marker.
+// That was wrong about half of it: the keyboard is checkable from the built
+// HTML, and so is the property a resize depends on --- that nothing on the map
+// is placed in pixels. Both are checked below.
 //
-//   CONTROL  what the visitor operates (button, slider, the scroll container)
+// Still left to the marker, because no test can hold them: that the idea is
+// one people should understand and is carried all the way, that the register
+// has a point of view, that the movement reads as movement, and that the
+// process evidence shows deliberate direction rather than retries.
+// `pnpm check:evidence` covers the presence of that evidence; only a person
+// can judge its quality.
+
+// The core interaction, named plainly enough to test --- the spec asks for
+// exactly this.
+//
+//   CONTROL  what the visitor operates
 //   DISPLAY  what changes as a result
 //
-// Both start empty, so this file is red until the mechanic exists. That is the
-// point: red-to-green across the week is the work.
+// The visitor picks a stop on the voyage, from the rail or from a marker on
+// the map; the ship sails there, the day counter climbs the length of the
+// stay, and the panel becomes that stop.
 const CONTROL: string = "#timeline";
 const DISPLAY: string = "#scene";
+
+// Everything else the visitor operates. The map grew from one control to
+// several while this file said nothing about it; naming them here means a
+// deleted one turns the suite red.
+const CONTROLS = [
+  "#timeline",
+  "#zoom-in",
+  "#zoom-out",
+  "#zoom-fit",
+  "#scale-toggle",
+  ".marker",
+];
 
 // The deployed site lives under the repo path, not the domain root. Any
 // root-absolute URL that doesn't start with this 404s live while looking
@@ -127,6 +147,112 @@ describe("assignment 1: the core interaction", () => {
       reachable,
       `${CONTROL} isn't keyboard-reachable --- use a native control or give it tabindex.`,
     ).toBe(true);
+  });
+});
+
+describe("assignment 1: holds up on the keyboard", () => {
+  // "Holds up under use it wasn't designed for: the keyboard" --- the spec's
+  // words for the artefact band. A marker tabs through the page, so a control
+  // the tab order never reaches is a control that does not exist for them.
+  const focusable = "a[href], button, input, select, textarea, summary, [tabindex]";
+
+  for (const selector of CONTROLS) {
+    it(`${selector} is on the tab order`, () => {
+      const found = pages.flatMap(({ doc }) => [
+        ...doc.querySelectorAll(selector),
+      ]);
+
+      expect(found.length, `no page contains ${selector}`).toBeGreaterThan(0);
+      for (const el of found) {
+        expect(
+          el.matches(focusable),
+          `${selector} is not reachable by tab --- use a native control or give it tabindex`,
+        ).toBe(true);
+      }
+    });
+  }
+
+  it("gives every control an accessible name", () => {
+    // A button whose only content is a glyph --- "+", "-" --- is announced as
+    // its glyph unless it says otherwise.
+    const unnamed: string[] = [];
+    for (const { doc } of pages) {
+      for (const el of doc.querySelectorAll("button, input[type=range]")) {
+        const label =
+          el.getAttribute("aria-label") ??
+          el.getAttribute("aria-labelledby") ??
+          (el.id ? doc.querySelector(`label[for="${el.id}"]`)?.textContent : "") ??
+          el.textContent ??
+          "";
+        if (label.trim().length < 2) unnamed.push(el.outerHTML.slice(0, 60));
+      }
+    }
+
+    expect(unnamed, `controls with no accessible name: ${unnamed.join(", ")}`)
+      .toHaveLength(0);
+  });
+
+  it("keeps the region that changes announced", () => {
+    const live = pages.some(({ doc }) =>
+      doc.querySelector(`${DISPLAY}[aria-live]`),
+    );
+
+    expect(
+      live,
+      `${DISPLAY} changes without saying so --- it needs aria-live for a screen reader to hear it`,
+    ).toBe(true);
+  });
+});
+
+describe("assignment 1: holds up across a resize", () => {
+  // The other half of the same sentence. A resize mid-interaction cannot be
+  // run here, but the property it depends on can: every position on the map is
+  // a percentage of its frame. One pixel value among them and that stop leaves
+  // its coastline the moment the window changes.
+  it("places every marker in percentages, never pixels", () => {
+    const pixels: string[] = [];
+    for (const { doc } of pages) {
+      for (const marker of doc.querySelectorAll(".marker")) {
+        const style = marker.getAttribute("style") ?? "";
+        if (/-?[\d.]+(px|em|rem|vw|vh|cm|in|pt)\b/.test(style)) {
+          pixels.push(style);
+        }
+        expect(style, "a marker with no position at all").toMatch(/%/);
+      }
+    }
+
+    expect(
+      pixels,
+      `markers positioned in absolute units drift on resize: ${pixels.join(", ")}`,
+    ).toHaveLength(0);
+  });
+
+  it("holds the map's aspect ratio rather than letterboxing it", () => {
+    // Markers are placed as a percentage of the frame, so the frame has to
+    // keep the coastline's own ratio. Let it letterbox inside a differently
+    // shaped parent and every marker drifts off its coast at some window size.
+    const css = files
+      .filter((path) => path.endsWith(".css"))
+      .map((path) => readFileSync(path, "utf8"))
+      .join("");
+
+    expect(css, "no stylesheet shipped").not.toHaveLength(0);
+    expect(
+      css.replace(/\s+/g, ""),
+      "the map frame does not pin an aspect-ratio, so markers will drift",
+    ).toMatch(/aspect-ratio:\d+\/\d+/);
+  });
+
+  it("offers a reduced-motion path", () => {
+    const css = files
+      .filter((path) => path.endsWith(".css"))
+      .map((path) => readFileSync(path, "utf8"))
+      .join("");
+
+    expect(
+      css,
+      "nothing answers prefers-reduced-motion, and this page moves a great deal",
+    ).toContain("prefers-reduced-motion");
   });
 });
 
