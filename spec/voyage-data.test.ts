@@ -14,12 +14,16 @@ import {
   MAX_NUDGE,
   STOPS,
   STOPS_WITHOUT_DURATION,
+  SAILING_NM_PER_DAY,
   TOTAL_STATED_DAYS,
   calendarSpan,
   dayAt,
+  distanceAt,
+  legDistance,
   markerGap,
   project,
   projectMarker,
+  sailingDaysAt,
   storyPosition,
 } from "../src/data/voyage.ts";
 
@@ -191,5 +195,47 @@ describe("the calendar rail", () => {
         10,
       );
     }
+  });
+});
+
+describe("days at sea, inferred", () => {
+  it("moves on every leg, including the ones the poem does not time", () => {
+    // Distance is what the page leads with precisely because this holds for it
+    // and cannot hold for whole days: three crossings are under fifty miles.
+    for (let i = 1; i < STOPS.length; i++) {
+      expect(
+        distanceAt(i),
+        `no crossing has no length, and stop ${i + 1} is one the poem is silent about`,
+      ).toBeGreaterThan(distanceAt(i - 1));
+    }
+  });
+
+  it("agrees with the poem on the one crossing the poem times", () => {
+    // Ogygia to Scheria is the only leg the Odyssey gives a sailing duration
+    // for: seventeen days on the raft. The rate here was taken from Casson's
+    // recorded fleet, not from this leg, so the two are independent --- and
+    // this is the only check available that the rate is anywhere near right.
+    const scheria = STOPS.findIndex((stop) => stop.id === "phaeacians");
+    const inferred = legDistance(scheria) / SAILING_NM_PER_DAY;
+
+    expect(Math.round(inferred)).toBe(17);
+  });
+
+  it("never touches what the poem counts", () => {
+    // The two numbers live side by side on the page and must not merge: one is
+    // what the poem says and the other is what a ship does.
+    const stated = STOPS.reduce((sum, stop) => sum + (stop.days ?? 0), 0);
+    expect(stated).toBe(TOTAL_STATED_DAYS);
+    expect(TOTAL_STATED_DAYS).toBe(3034);
+    expect(sailingDaysAt(STOPS.length - 1)).toBeLessThan(TOTAL_STATED_DAYS);
+  });
+
+  it("measures the leg along the course the map draws", () => {
+    // Through the sea marks, not straight across the Peloponnese: the leg to
+    // the Lotus-Eaters rounds Cape Malea, and a straight line would be shorter
+    // than what is drawn.
+    const lotus = STOPS.findIndex((stop) => stop.id === "lotus");
+    expect(STOPS[lotus]!.via?.length).toBeGreaterThan(0);
+    expect(legDistance(lotus)).toBeGreaterThan(700);
   });
 });

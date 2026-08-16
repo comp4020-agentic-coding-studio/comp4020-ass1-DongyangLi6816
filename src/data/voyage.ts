@@ -410,6 +410,83 @@ export const BENCHMARKS: Benchmark[] = [
   },
 ];
 
+/**
+ * Days at sea, inferred --- never added to the days the poem states.
+ *
+ * Eight of the fourteen stops carry no stated duration, so the counter stands
+ * still through them, which reads as broken rather than as absent. It is not
+ * absent that the crossing took time; it is only unstated. The time a crossing
+ * takes can be had from its length and a rate, and this one is not a guess:
+ * the poem's own benchmark list already carries a fleet that made Troy to
+ * Alexandria, 550 nautical miles, in seven days (Casson, *Ships and
+ * Seamanship*, p. 293). That is 78.6 miles a day with the nights and the
+ * stops already in it, which is why it is used rather than the 4 knots that
+ * Bronze Age modelling takes from the same book --- a knot figure would have
+ * to be turned into days by assuming how much of a day is spent sailing, and
+ * this measurement has already answered that.
+ *
+ * It stays a separate number on the page for the same reason `days` stays
+ * null: one of these two things is what the poem counts, and the other is
+ * what a ship does. Nothing here changes TOTAL_STATED_DAYS.
+ */
+export const SAILING_NM_PER_DAY = 550 / 7;
+
+/** Great-circle distance between two points on the map, in nautical miles. */
+function nauticalMiles(
+  a: { lon: number; lat: number },
+  b: { lon: number; lat: number },
+): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLon = toRad(b.lon - a.lon);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon / 2) ** 2;
+  // Earth's mean radius in nautical miles.
+  return 2 * 3440.065 * Math.asin(Math.sqrt(h));
+}
+
+/**
+ * The length of the leg arriving at a stop, in nautical miles, measured along
+ * the course the map draws --- through the sea marks, not straight through the
+ * Peloponnese.
+ */
+export function legDistance(index: number): number {
+  if (index === 0) return 0;
+  const stop = STOPS[index]!;
+  const previous = STOPS[index - 1]!;
+  const path = [
+    previous,
+    ...(stop.via ?? []).map(([lon, lat]) => ({ lon, lat })),
+    stop,
+  ];
+  let total = 0;
+  for (let i = 1; i < path.length; i++) {
+    total += nauticalMiles(path[i - 1]!, path[i]!);
+  }
+  return total;
+}
+
+/** Cumulative distance sailed on arriving at a stop, in nautical miles. */
+export function distanceAt(index: number): number {
+  let total = 0;
+  for (let i = 1; i <= index; i++) total += legDistance(i);
+  return total;
+}
+
+/**
+ * Cumulative days at sea on arriving at a stop.
+ *
+ * Not rounded per leg. Three of the crossings are under fifty miles and take
+ * well under a day, and rounding each of those up to one would be inventing
+ * time the poem does not owe. Which is why the page leads with the distance:
+ * that is measured off the drawn course and rises at every stop, where the day
+ * figure carries a rate and cannot.
+ */
+export function sailingDaysAt(index: number): number {
+  return distanceAt(index) / SAILING_NM_PER_DAY;
+}
+
 /** Total days the poem actually states. Derived, never hard-coded. */
 export const TOTAL_STATED_DAYS = STOPS.reduce(
   (sum, stop) => sum + (stop.days ?? 0),
