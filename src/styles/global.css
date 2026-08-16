@@ -719,6 +719,7 @@ body::after {
   position: absolute;
   top: 0;
   height: 100%;
+
   /* Adjacent stays have to read as two, not as one long bar: on the calendar
      Circe's year and Calypso's seven years touch. */
   border-inline: 1px solid rgb(0 0 0 / 70%);
