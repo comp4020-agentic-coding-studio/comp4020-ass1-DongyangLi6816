@@ -36,6 +36,32 @@ and see `spec/README.md` for how the checks in this repo relate to it.
   be.
 - Commit when the checks pass. Never commit a red state.
 
+## Enumerate before you select
+
+A list that reads as finished and a list that is complete are indistinguishable
+from the outside --- which is why a dropped item is more dangerous than an
+invented one: nothing in the output reveals it. These rules exist to make the
+gap visible.
+
+- **Enumerate before you select.** When the task involves a set that exists in
+  a source --- steps, stops, cases, files, options --- produce the complete
+  enumeration first, as a list with an ID and a source reference per item. Only
+  then select from it. Every item you leave out must be named, with one line
+  saying why. A selection presented as if it were an enumeration is the failure
+  this rule exists to catch.
+- **Every research pass needs one disconfirming query.** Searches that only
+  confirm what you already chose will find what you already chose. Alongside
+  them, run at least one query aimed at the gap --- "complete list of X", "what
+  is missing from Y" --- and reconcile the result against what you already have.
+- **State coverage, or say it is a selection.** Any list you hand me states how
+  many of the total it covers ("7 of 18"), or says plainly that it is a
+  selection rather than the whole set. Never leave me to infer completeness from
+  how finished the prose sounds.
+- **Gaps stay gaps.** When a source does not state a value --- a duration, a
+  date, a count --- say so and leave it empty. Never interpolate a plausible
+  number to make a table look finished. Mark inferred values as inferred
+  everywhere they appear, including in prose.
+
 ## The checks (your sensors)
 
 CI runs these on every push once your repo is public. GitHub's checks UI shows
