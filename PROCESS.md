@@ -1,7 +1,7 @@
 # Process overview
 
-A reading-guide to how this prototype came together. Follow the citations ---
-they point at the commits where each decision landed.
+A reading-guide. Follow the citations --- they point at the commits where each
+decision landed.
 
 ## What I built
 
@@ -41,8 +41,8 @@ entries against one for the Laestrygonians. Both would have shipped as fact.
 
 They also tripled the cost: research passes went from roughly 54k tokens to
 146-163k. Diagnosing why was the useful part. The rule governs *the list you
-hand me*, and I had been applying it to *the work* --- enumerating fourteen
-stops is cheap, investigating all fourteen to equal depth is not.
+hand me*, and I applied it to *the work* --- enumerating fourteen stops is
+cheap, investigating all fourteen equally is not.
 
 The honest fix was to bound the rule. The affordable one, on a fixed quota, was
 to remove it
@@ -56,8 +56,8 @@ cannot drift without turning a check red.
 
 ### Every sentence I wrote was patching a design
 
-Three strings came out of the page in twenty minutes: a note explaining what
-the two colours in the calendar meant
+Three strings came out of the page in twenty minutes: a note explaining the two
+colours in the calendar
 ([`dad271c`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-DongyangLi6816/commit/dad271c)),
 a hint telling the visitor to drag the timeline, and the statistic under it
 ([`2cfbb9c`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-DongyangLi6816/commit/2cfbb9c)).
@@ -71,6 +71,6 @@ in their `frontend-design` skill. I wrote my own rule, found theirs, and
 swapped mine out
 ([`d6ae9a9...fdb474a`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-DongyangLi6816/compare/d6ae9a9...fdb474a)).
 Theirs catches more --- "let each element do exactly one job" is what that note
-actually failed, doing three at once --- and is looser about explanatory copy
-than the reading that got the strings deleted. I wrote the loosening into the
-commit rather than pretend the swap cost nothing.
+failed, doing three at once --- and is looser about explanatory copy than the
+reading that got the strings deleted. I wrote the loosening into the commit
+rather than pretend the swap was free.
