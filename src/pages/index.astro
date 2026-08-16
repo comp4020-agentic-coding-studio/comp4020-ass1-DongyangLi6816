@@ -96,9 +96,9 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
             about how long they took; none of the crossings between them was
             instant. */}
         <p class="counter is-ghost">
-          <span class="counter-k">Sailed</span>
-          <span class="counter-v" id="sea-count">0 nm</span>
-          <span class="counter-n" id="sea-note">before setting out</span>
+          <span class="counter-k">At sea, inferred</span>
+          <span class="counter-v" id="sea-count">0 days</span>
+          <span class="counter-n">at a recorded fleet's pace</span>
         </p>
       </div>
     </header>
@@ -265,7 +265,6 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         STOPS,
         calendarSpan,
         dayAt,
-        distanceAt,
         routePoints,
         sailingDaysAt,
         storyPosition,
@@ -300,32 +299,24 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
       const el = (id: string) => document.getElementById(id)!;
 
       /**
-       * Distance leads and the day figure follows it.
+       * Days at sea, which the poem does not count and a ship cannot avoid.
        *
-       * The poem times six of the fourteen stops and says nothing about the
-       * other eight, so a counter of stated days stands still through more than
-       * half the voyage --- which reads as a fault rather than as an absence.
-       * What is not absent is the sea between them. The distance is measured
-       * off the course the map draws and rises at every stop; the days are that
-       * distance at the rate of a fleet Casson records, and are the inference.
+       * Six of the fourteen stops are given a duration and eight are not, so a
+       * counter of stated days stands still through more than half the voyage
+       * --- correct, and it reads as a fault. This one rises at every stop.
+       *
+       * Shown to a tenth of a day, which is not a claim about the rate's
+       * accuracy but a consequence of the arithmetic: three of the crossings
+       * are under fifty miles and take well under a day, and rounding each of
+       * those up to one would invent time the poem does not owe.
        */
-      const MILES = STOPS.map((_, i) => distanceAt(i));
       const SEA_DAYS = STOPS.map((_, i) => sailingDaysAt(i));
 
-      function between(values: number[], value: number): number {
+      const writeSea = (value: number) => {
         const i = Math.max(0, Math.min(STOPS.length - 2, Math.floor(value)));
         const t = Math.max(0, Math.min(1, value - i));
-        return values[i]! + (values[i + 1]! - values[i]!) * t;
-      }
-
-      const writeSea = (value: number) => {
-        const miles = Math.round(between(MILES, value));
-        const days = Math.round(between(SEA_DAYS, value));
-        el("sea-count").textContent = `${miles.toLocaleString()} nm`;
-        el("sea-note").textContent =
-          miles === 0
-            ? "before setting out"
-            : `about ${days} day${days === 1 ? "" : "s"} under sail`;
+        const days = SEA_DAYS[i]! + (SEA_DAYS[i + 1]! - SEA_DAYS[i]!) * t;
+        el("sea-count").textContent = `${days.toFixed(1)} days`;
       };
       const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
 

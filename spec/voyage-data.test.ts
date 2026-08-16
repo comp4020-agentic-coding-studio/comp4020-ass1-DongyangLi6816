@@ -200,14 +200,20 @@ describe("the calendar rail", () => {
 
 describe("days at sea, inferred", () => {
   it("moves on every leg, including the ones the poem does not time", () => {
-    // Distance is what the page leads with precisely because this holds for it
-    // and cannot hold for whole days: three crossings are under fifty miles.
     for (let i = 1; i < STOPS.length; i++) {
       expect(
-        distanceAt(i),
-        `no crossing has no length, and stop ${i + 1} is one the poem is silent about`,
-      ).toBeGreaterThan(distanceAt(i - 1));
+        sailingDaysAt(i),
+        `no crossing takes no time, and stop ${i + 1} is one the poem is silent about`,
+      ).toBeGreaterThan(sailingDaysAt(i - 1));
     }
+  });
+
+  it("still moves at every stop once shown to a tenth of a day", () => {
+    // The page shows one decimal, so the guarantee above has to survive that
+    // rounding: three crossings are under fifty miles and whole days would
+    // repeat across the shortest of them.
+    const shown = STOPS.map((_, i) => sailingDaysAt(i).toFixed(1));
+    expect(new Set(shown).size).toBe(STOPS.length);
   });
 
   it("agrees with the poem on the one crossing the poem times", () => {
