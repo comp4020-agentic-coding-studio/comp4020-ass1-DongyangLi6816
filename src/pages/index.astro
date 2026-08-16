@@ -91,15 +91,6 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
           <span class="counter-v" id="day-count">Day 0</span>
           <span class="counter-n" id="day-note">still at Troy</span>
         </p>
-        {/* Kept apart from the poem's count, in the same colour the other
-            inferred figure on this bar uses. Eight of the stops are silent
-            about how long they took; none of the crossings between them was
-            instant. */}
-        <p class="counter is-ghost">
-          <span class="counter-k">At sea, inferred</span>
-          <span class="counter-v" id="sea-count">0 days</span>
-          <span class="counter-n">at a recorded fleet's pace</span>
-        </p>
       </div>
     </header>
 
@@ -266,8 +257,8 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         calendarSpan,
         dayAt,
         routePoints,
-        sailingDaysAt,
         storyPosition,
+        voyageDayAt,
       } from "../data/voyage.ts";
 
       const timeline = document.querySelector<HTMLInputElement>("#timeline")!;
@@ -299,25 +290,16 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
       const el = (id: string) => document.getElementById(id)!;
 
       /**
-       * Days at sea, which the poem does not count and a ship cannot avoid.
+       * The day the voyage stands at: the poem's count where it has one and a
+       * crossing's sailing time where it does not.
        *
-       * Six of the fourteen stops are given a duration and eight are not, so a
-       * counter of stated days stands still through more than half the voyage
-       * --- correct, and it reads as a fault. This one rises at every stop.
-       *
-       * Shown to a tenth of a day, which is not a claim about the rate's
-       * accuracy but a consequence of the arithmetic: three of the crossings
-       * are under fifty miles and take well under a day, and rounding each of
-       * those up to one would invent time the poem does not owe.
+       * Six of the fourteen stops are given a duration and eight are not. A
+       * counter of stated days alone therefore stands still through more than
+       * half the journey --- correct, and it reads as a fault. This one moves
+       * wherever the visitor goes, and never counts a stretch of sea twice:
+       * see voyageDayAt.
        */
-      const SEA_DAYS = STOPS.map((_, i) => sailingDaysAt(i));
-
-      const writeSea = (value: number) => {
-        const i = Math.max(0, Math.min(STOPS.length - 2, Math.floor(value)));
-        const t = Math.max(0, Math.min(1, value - i));
-        const days = SEA_DAYS[i]! + (SEA_DAYS[i + 1]! - SEA_DAYS[i]!) * t;
-        el("sea-count").textContent = `${days.toFixed(1)} days`;
-      };
+      const DAYS = STOPS.map((_, i) => voyageDayAt(i));
       const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
 
       const stillness = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -596,7 +578,7 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
       function animateTo(index: number) {
         const fromProgress = progress;
         const fromDay = day;
-        const toDay = dayAt(index);
+        const toDay = Math.round(DAYS[index]!);
         const travel = travelTime(Math.abs(index - fromProgress));
 
         // The camera moves on the ship's clock, so the two arrive together.
@@ -632,7 +614,6 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
           el("day-count").textContent = `Day ${day.toLocaleString()}`;
           el("day-note").textContent =
             index === 0 && day === 0 ? "still at Troy" : describeLag(day);
-          writeSea(progress);
 
           if (sailing < 1 || staying < 1) {
             frameRequest = requestAnimationFrame(step);
@@ -699,7 +680,7 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         // Announced from the arrival value, not the value the counter happens
         // to be rolling through: a screen reader should hear where the voyage
         // stands, not watch the animation.
-        const arrival = dayAt(index);
+        const arrival = Math.round(DAYS[index]!);
         timeline.setAttribute(
           "aria-valuetext",
           `Stop ${index + 1} of ${STOPS.length}, ${stop.name}. Day ${arrival.toLocaleString()}. ${describeLag(arrival)}.`,
@@ -990,7 +971,7 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
       function dayBetween(value: number): number {
         const i = Math.max(0, Math.min(STOPS.length - 2, Math.floor(value)));
         const t = Math.max(0, Math.min(1, value - i));
-        return Math.round(dayAt(i) + (dayAt(i + 1) - dayAt(i)) * t);
+        return Math.round(DAYS[i]! + (DAYS[i + 1]! - DAYS[i]!) * t);
       }
 
       function scrubTo(value: number) {
@@ -1001,7 +982,6 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         el("day-count").textContent = `Day ${day.toLocaleString()}`;
         el("day-note").textContent =
           day === 0 ? "still at Troy" : describeLag(day);
-        writeSea(value);
 
         const nearest = Math.round(value);
         if (nearest !== current) showText(nearest);

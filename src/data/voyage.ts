@@ -487,6 +487,44 @@ export function sailingDaysAt(index: number): number {
   return distanceAt(index) / SAILING_NM_PER_DAY;
 }
 
+/**
+ * Days the poem states for the *stay* at a stop, where its own note separates
+ * the stay from the crossing that follows.
+ *
+ * Ogygia's 2,576 is "seven years held, four days building the raft, seventeen
+ * sailing" --- 7 x 365 + 4 + 17. Those seventeen are the crossing to Scheria,
+ * not time on Calypso's island, and the poem is explicit about it. Splitting
+ * them out is the difference between counting that crossing once and counting
+ * it twice.
+ */
+const CROSSING_ALREADY_STATED: Record<string, number> = { ogygia: 17 };
+
+/**
+ * The running day of the voyage: one number that only goes up.
+ *
+ * The poem times six of the fourteen stops and is silent about eight, so a
+ * counter of stated days alone stands still through more than half the
+ * journey. This one uses the poem wherever it speaks and the rate of Casson's
+ * recorded fleet wherever it does not, and never both for the same stretch of
+ * sea --- which is what `CROSSING_ALREADY_STATED` is for.
+ *
+ * It is not the poem's count and does not pretend to be. `TOTAL_STATED_DAYS`
+ * and `dayAt` remain exactly what the poem says, and the panel still tells the
+ * visitor which stops it says nothing about.
+ */
+export function voyageDayAt(index: number): number {
+  let total = 0;
+  for (let i = 1; i <= index; i++) {
+    const stop = STOPS[i]!;
+    const handedOn = CROSSING_ALREADY_STATED[STOPS[i - 1]!.id] ?? 0;
+    const crossing =
+      stop.days === null ? legDistance(i) / SAILING_NM_PER_DAY : 0;
+    total += (stop.days ?? 0) - (CROSSING_ALREADY_STATED[stop.id] ?? 0);
+    total += handedOn > 0 ? handedOn : crossing;
+  }
+  return total;
+}
+
 /** Total days the poem actually states. Derived, never hard-coded. */
 export const TOTAL_STATED_DAYS = STOPS.reduce(
   (sum, stop) => sum + (stop.days ?? 0),

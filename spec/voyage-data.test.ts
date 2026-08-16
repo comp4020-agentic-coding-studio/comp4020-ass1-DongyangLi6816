@@ -25,6 +25,7 @@ import {
   projectMarker,
   sailingDaysAt,
   storyPosition,
+  voyageDayAt,
 } from "../src/data/voyage.ts";
 
 describe("voyage data: durations match the research", () => {
@@ -243,5 +244,44 @@ describe("days at sea, inferred", () => {
     const lotus = STOPS.findIndex((stop) => stop.id === "lotus");
     expect(STOPS[lotus]!.via?.length).toBeGreaterThan(0);
     expect(legDistance(lotus)).toBeGreaterThan(700);
+  });
+});
+
+describe("the running day of the voyage", () => {
+  it("rises at every stop, whole days and all", () => {
+    // The counter shows whole days, so it is not enough for the underlying
+    // number to rise: the displayed one has to.
+    const shown = STOPS.map((_, i) => Math.round(voyageDayAt(i)));
+    for (let i = 1; i < shown.length; i++) {
+      expect(
+        shown[i],
+        `the counter stands still arriving at stop ${i + 1}`,
+      ).toBeGreaterThan(shown[i - 1]!);
+    }
+  });
+
+  it("never counts the same stretch of sea twice", () => {
+    // Ogygia's stated 2,576 is "seven years held, four days building the raft,
+    // seventeen sailing", and those seventeen are the crossing to Scheria. If
+    // the crossing were inferred on top of them the total would carry it twice.
+    const scheria = STOPS.findIndex((stop) => stop.id === "phaeacians");
+    const ogygia = scheria - 1;
+    const crossing = voyageDayAt(scheria) - voyageDayAt(ogygia);
+
+    expect(crossing).toBeCloseTo(17, 6);
+    expect(legDistance(scheria) / SAILING_NM_PER_DAY).toBeGreaterThan(17);
+  });
+
+  it("stays close to what the poem counts", () => {
+    // The inference fills eight silences; it must not become the number. If
+    // this ever drifts far from the stated total, the rate is doing too much.
+    const running = voyageDayAt(STOPS.length - 1);
+    expect(running).toBeGreaterThan(TOTAL_STATED_DAYS);
+    expect(running - TOTAL_STATED_DAYS).toBeLessThan(30);
+  });
+
+  it("leaves the poem's own count untouched", () => {
+    expect(TOTAL_STATED_DAYS).toBe(3034);
+    expect(dayAt(STOPS.length - 1)).toBe(TOTAL_STATED_DAYS);
   });
 });
