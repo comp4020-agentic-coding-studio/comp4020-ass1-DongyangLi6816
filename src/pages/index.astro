@@ -8,7 +8,6 @@ import {
   STOPS_WITHOUT_DURATION,
   TOTAL_STATED_DAYS,
   dayAt,
-  project,
   projectMarker,
 } from "../data/voyage.ts";
 import "../styles/global.css";
@@ -17,14 +16,16 @@ const base = import.meta.env.BASE_URL;
 const markers = STOPS.map((stop, i) => ({
   ...stop,
   index: i,
-  pos: project(stop),
   marker: projectMarker(stop),
   day: dayAt(i),
 }));
 
-// The route is drawn between marker centres in percentage space, so it lines
-// up with the buttons rather than with the coastline's own coordinates.
-const route = markers.map((m) => `${m.pos.x},${m.pos.y}`).join(" ");
+// The route is drawn between marker centres, not true positions, so the line,
+// the buttons and the ship all agree. The nudges that separate the two are at
+// most three percentage points and exist only so clustered stops stay
+// clickable; a ship that docks two marker-widths off the marker the visitor
+// just pressed reads as a bug, and no one can see the difference on a coast.
+const route = markers.map((m) => `${m.marker.x},${m.marker.y}`).join(" ");
 const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
 ---
 
@@ -82,7 +83,31 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
               aria-hidden="true"
               focusable="false"
             >
+              {/* Two copies of the same line. The faint dashed one is the whole
+                  voyage; the solid one is drawn in behind the ship by pulling
+                  its dash offset back, so what has been sailed and what has
+                  not are different marks rather than different colours. */}
               <polyline points={route} vector-effect="non-scaling-stroke" />
+              <polyline
+                id="route-sailed"
+                points={route}
+                vector-effect="non-scaling-stroke"
+              />
+            </svg>
+
+            {/* The ship rides the route by transform, in pixels, so moving it
+                never touches layout. Decorative: the panel and the counters
+                carry the same information as text. */}
+            <svg
+              class="ship"
+              id="ship"
+              viewBox="0 0 40 26"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path
+                d="M2 15 L38 15 L33 22 L7 22 Z M19 15 L19 3 L20 3 L20 15 Z M20 4 L31 8 L20 12 Z"
+              ></path>
             </svg>
 
             <div class="markers" role="group" aria-label="Voyage stops">
@@ -148,16 +173,102 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
     </main>
 
     <script>
-      import { BENCHMARKS, STOPS, dayAt } from "../data/voyage.ts";
+      import { BENCHMARKS, STOPS, dayAt, projectMarker } from "../data/voyage.ts";
 
       const timeline = document.querySelector<HTMLInputElement>("#timeline")!;
       const markers = [
         ...document.querySelectorAll<HTMLButtonElement>(".marker"),
       ];
       const ticks = [...document.querySelectorAll<HTMLElement>(".rail-tick")];
+      const frame = document.querySelector<HTMLElement>(".map-frame")!;
+      const ship = document.querySelector<SVGSVGElement>("#ship")!;
+      const sailed = document.querySelector<SVGPolylineElement>("#route-sailed")!;
+      const panel = document.querySelector<HTMLElement>("#scene")!;
 
       const el = (id: string) => document.getElementById(id)!;
       const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
+
+      const stillness = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+      /**
+       * The route in the same percentage space the markers use.
+       *
+       * Lengths along it have to be measured in *screen pixels*, not in the
+       * svg's user units, and that is not a stylistic choice. The route carries
+       * `vector-effect="non-scaling-stroke"`, which makes the browser generate
+       * the stroke --- dash pattern included --- after the transform, in device
+       * space. Feeding it user-unit lengths made the dash pattern repeat several
+       * times along the route, so stretches the ship had not reached yet were
+       * drawn as sailed. The svg is also `preserveAspectRatio="none"`, so there
+       * is no single scale factor to convert by either: x and y have to be
+       * scaled separately, which is what this does.
+       */
+      const NODES = STOPS.map((stop) => projectMarker(stop));
+
+      function metrics(box: DOMRect): { cum: number[]; total: number } {
+        const cum = [0];
+        for (let i = 1; i < NODES.length; i++) {
+          const a = NODES[i - 1]!;
+          const b = NODES[i]!;
+          cum.push(
+            cum[i - 1]! +
+              Math.hypot(
+                ((b.x - a.x) / 100) * box.width,
+                ((b.y - a.y) / 100) * box.height,
+              ),
+          );
+        }
+        return { cum, total: cum[cum.length - 1]! };
+      }
+
+      /** Where the ship is, given a fractional position along the stop list. */
+      function pointAt(progress: number): { x: number; y: number } {
+        const i = Math.max(0, Math.min(STOPS.length - 2, Math.floor(progress)));
+        const t = Math.max(0, Math.min(1, progress - i));
+        const a = NODES[i]!;
+        const b = NODES[i + 1]!;
+        return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+      }
+
+      function drawShip(progress: number) {
+        const box = frame.getBoundingClientRect();
+        if (box.width === 0) return;
+
+        const here = pointAt(progress);
+        const ahead = pointAt(Math.min(STOPS.length - 1, progress + 0.01));
+        const behind = pointAt(Math.max(0, progress - 0.01));
+
+        // The frame is wider than it is tall and the route's user space is
+        // stretched to match, so the heading has to be worked out in pixels.
+        // Taking it from percentages points the bow at the wrong horizon.
+        const angle =
+          (Math.atan2(
+            (ahead.y - behind.y) * box.height,
+            (ahead.x - behind.x) * box.width,
+          ) *
+            180) /
+          Math.PI;
+
+        // A ship has an up. Rotating a west-bound heading past ninety degrees
+        // turns the whole boat over and stands the mast on the sea floor, so
+        // anything heading left is mirrored and rotated back instead --- the
+        // bow still points along the course, and the mast still points at the
+        // sky.
+        const westbound = Math.abs(angle) > 90;
+        const heading = westbound ? angle - 180 : angle;
+        const mirror = westbound ? " scale(-1, 1)" : "";
+
+        ship.style.transform = `translate(${(here.x / 100) * box.width}px, ${
+          (here.y / 100) * box.height
+        }px) translate(-50%, -50%) rotate(${heading}deg)${mirror}`;
+
+        const { cum, total } = metrics(box);
+        const i = Math.max(0, Math.min(STOPS.length - 2, Math.floor(progress)));
+        const t = Math.max(0, Math.min(1, progress - i));
+        const travelled = cum[i]! + (cum[i + 1]! - cum[i]!) * t;
+        sailed.style.strokeDasharray = String(total);
+        sailed.style.strokeDashoffset = String(total - travelled);
+      }
 
       function describeLag(day: number): string {
         const behind = day - diomedes.day;
@@ -175,12 +286,74 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
       }
 
       let current = -1;
+      let progress = 0;
+      let day = 0;
+      let frameRequest = 0;
+
+      /**
+       * Sailing and staying are animated on two clocks, one after the other,
+       * because that separation is the whole argument of the page.
+       *
+       * The ship crosses in about half a second wherever it is going --- the
+       * distances are not the point. Then it sits still while the day counter
+       * climbs the length of the stay, log-scaled so nine days is a blink and
+       * Calypso's seven years is the longest thing on the page. The stop the
+       * poem spends 85% of its counted time on is the one where nothing moves.
+       */
+      function travelTime(distance: number): number {
+        if (stillness.matches) return 0;
+        return 240 + 140 * Math.min(3, distance);
+      }
+
+      function dwellTime(days: number): number {
+        if (stillness.matches || days <= 0) return 0;
+        return Math.min(1500, 200 + 300 * Math.log10(1 + days));
+      }
+
+      const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
+
+      function animateTo(index: number) {
+        const fromProgress = progress;
+        const fromDay = day;
+        const toDay = dayAt(index);
+        const travel = travelTime(Math.abs(index - fromProgress));
+        const dwell = dwellTime(Math.abs(toDay - fromDay));
+        const started = performance.now();
+
+        cancelAnimationFrame(frameRequest);
+
+        const step = (now: number) => {
+          const t = now - started;
+          const sailing = travel === 0 ? 1 : Math.min(1, t / travel);
+          const staying =
+            dwell === 0 ? 1 : Math.min(1, Math.max(0, (t - travel) / dwell));
+
+          progress = fromProgress + (index - fromProgress) * easeOut(sailing);
+          day = Math.round(fromDay + (toDay - fromDay) * easeOut(staying));
+
+          drawShip(progress);
+          el("day-count").textContent = `Day ${day.toLocaleString()}`;
+          el("day-note").textContent =
+            index === 0 && day === 0 ? "still at Troy" : describeLag(day);
+
+          if (sailing < 1 || staying < 1) {
+            frameRequest = requestAnimationFrame(step);
+          }
+        };
+
+        frameRequest = requestAnimationFrame(step);
+      }
 
       function show(index: number) {
         if (index === current) return;
         current = index;
         const stop = STOPS[index]!;
-        const day = dayAt(index);
+
+        // Restart the entrance animation rather than queueing one, so dragging
+        // the timeline fast never leaves the panel mid-fade.
+        panel.classList.remove("is-entering");
+        void panel.offsetWidth;
+        panel.classList.add("is-entering");
 
         el("scene-num").textContent = String(index + 1);
         el("scene-book").textContent = stop.book;
@@ -196,8 +369,7 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
               : `${stop.days.toLocaleString()} days — ${stop.daysNote}.`;
         el("scene-days").classList.toggle("is-gap", stop.days === null);
 
-        el("day-count").textContent = `Day ${day.toLocaleString()}`;
-        el("day-note").textContent = index === 0 ? "still at Troy" : describeLag(day);
+        animateTo(index);
 
         markers.forEach((m, i) => {
           m.setAttribute("aria-pressed", String(i === index));
@@ -210,11 +382,20 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         });
 
         if (timeline.valueAsNumber !== index) timeline.value = String(index);
+
+        // Announced from the arrival value, not the value the counter happens
+        // to be rolling through: a screen reader should hear where the voyage
+        // stands, not watch the animation.
+        const arrival = dayAt(index);
         timeline.setAttribute(
           "aria-valuetext",
-          `Stop ${index + 1} of ${STOPS.length}, ${stop.name}. Day ${day.toLocaleString()}. ${describeLag(day)}.`,
+          `Stop ${index + 1} of ${STOPS.length}, ${stop.name}. Day ${arrival.toLocaleString()}. ${describeLag(arrival)}.`,
         );
       }
+
+      // Percentages survive a resize; pixels do not, and the marker is redrawn
+      // from the frame's current size each time.
+      window.addEventListener("resize", () => drawShip(progress));
 
       timeline.addEventListener("input", () => show(timeline.valueAsNumber));
       markers.forEach((m, i) => m.addEventListener("click", () => show(i)));
