@@ -173,6 +173,60 @@ body::after {
   text-decoration: none;
 }
 
+/* ---------- sound ---------- */
+
+.sound {
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin-right: auto;
+  margin-left: 1.4rem;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: none;
+  color: var(--figure-dim);
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.sound:hover,
+.sound[aria-pressed="true"] {
+  border-color: var(--clay);
+  color: var(--figure);
+}
+
+/* Two bars, which grow into four when it is playing. */
+.sound-glyph {
+  width: 0.62rem;
+  height: 0.62rem;
+  border-right: 2px solid currentcolor;
+  border-left: 2px solid currentcolor;
+}
+
+.sound[aria-pressed="true"] .sound-glyph {
+  border-color: var(--clay-bright);
+  animation: pulse 1.9s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    scale: 1 0.55;
+  }
+
+  50% {
+    scale: 1 1;
+  }
+}
+
 .counters {
   display: flex;
   gap: clamp(0.9rem, 3vw, 2.5rem);
@@ -285,6 +339,16 @@ body::after {
   font-size: 0.66rem;
   opacity: 0.65;
   pointer-events: none;
+}
+
+.credit {
+  color: var(--figure-dim);
+  font-size: 0.66rem;
+  opacity: 0.8;
+}
+
+.credit a {
+  color: inherit;
 }
 
 /* Dragging the map should feel like moving paper, and a drag in progress must
@@ -1088,7 +1152,8 @@ body::after {
   /* The script already collapses the ship and the counter to zero duration;
      these are the parts CSS owns. Every end state is identical either way. */
   .panel.is-entering,
-  .marker.is-active .marker-dot::after {
+  .marker.is-active .marker-dot::after,
+  .sound[aria-pressed="true"] .sound-glyph {
     animation: none;
   }
 }

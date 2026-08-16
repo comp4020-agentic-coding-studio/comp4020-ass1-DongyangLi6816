@@ -3,6 +3,7 @@ import Placenames from "../components/placenames.astro";
 import Seamarks from "../components/seamarks.astro";
 import rawCoastline from "../components/coastline.svg?raw";
 import { roughen } from "../data/coastline.ts";
+import track from "../audio/temple-of-the-manes.m4a";
 import {
   BENCHMARKS,
   STOPS,
@@ -64,6 +65,21 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
       <nav aria-label="Primary">
         <a class="wordmark" href={base}>Ten Years Late</a>
       </nav>
+      {/* Off by default and never autoplayed: a marked page that starts making
+          noise is a page nobody hears twice. `preload="none"` keeps the 1.2MB
+          off the first load entirely --- it is fetched when it is asked for. */}
+      <button
+        type="button"
+        class="sound"
+        id="sound"
+        aria-pressed="false"
+        aria-label="Play the music"
+      >
+        <span class="sound-glyph" aria-hidden="true"></span>
+        <span id="sound-label">Sound</span>
+      </button>
+      <audio id="track" src={track} loop preload="none"></audio>
+
       <div class="counters">
         <p class="counter is-ghost">
           <span class="counter-k">{diomedes.who}, {diomedes.source}</span>
@@ -219,6 +235,17 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
             <span class="scale-dot"></span>
             <span id="scale-label">Story order</span>
           </button>
+          {/* The licence the music ships under requires attribution, so it is
+              on the page. It lives here rather than over the map because the
+              map's own corner is hidden on a phone, and an attribution only
+              some visitors can see is not one. */}
+          <span class="credit">
+            <em>Temple of the Manes</em> by Kevin MacLeod, <a
+              href="https://creativecommons.org/licenses/by/4.0/"
+              rel="license noopener"
+              target="_blank">CC BY 4.0</a
+            >
+          </span>
         </p>
       </div>
     </main>
@@ -1039,6 +1066,52 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         const clamped = Math.max(0, Math.min(STOPS.length - 1, next));
         show(clamped);
         markers[clamped]!.focus();
+      });
+
+      // ---------- sound ----------
+
+      // Faded in and out rather than switched: an ancient modal piece cutting
+      // in at full volume is a jump-scare.
+      const audio = document.querySelector<HTMLAudioElement>("#track")!;
+      const soundButton = document.querySelector<HTMLButtonElement>("#sound")!;
+      const soundLabel = document.querySelector<HTMLElement>("#sound-label")!;
+      const VOLUME = 0.34;
+      let fade = 0;
+
+      function rampTo(target: number, done?: () => void) {
+        cancelAnimationFrame(fade);
+        const from = audio.volume;
+        const started = performance.now();
+        const step = (now: number) => {
+          const t = Math.min(1, (now - started) / 700);
+          audio.volume = from + (target - from) * t;
+          if (t < 1) fade = requestAnimationFrame(step);
+          else done?.();
+        };
+        fade = requestAnimationFrame(step);
+      }
+
+      soundButton.addEventListener("click", async () => {
+        const playing = soundButton.getAttribute("aria-pressed") === "true";
+        if (playing) {
+          rampTo(0, () => audio.pause());
+          soundButton.setAttribute("aria-pressed", "false");
+          soundButton.setAttribute("aria-label", "Play the music");
+          soundLabel.textContent = "Sound";
+          return;
+        }
+        audio.volume = 0;
+        try {
+          await audio.play();
+        } catch {
+          // Blocked, or the file could not be fetched. The page is silent and
+          // everything else on it still works, so say nothing and stay off.
+          return;
+        }
+        soundButton.setAttribute("aria-pressed", "true");
+        soundButton.setAttribute("aria-label", "Stop the music");
+        soundLabel.textContent = "Sound on";
+        rampTo(VOLUME);
       });
 
       show(0);

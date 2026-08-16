@@ -1,0 +1,14 @@
+"Temple of the Manes" by Kevin MacLeod (incompetech.com)
+Licensed under Creative Commons: By Attribution 4.0
+https://creativecommons.org/licenses/by/4.0/
+
+Source:  https://incompetech.com/music/royalty-free/mp3-royaltyfree/Temple%20of%20the%20Manes.mp3
+ISRC:    USUAN1100053
+Catalogue entry: harps, flutes, oboe, percussion; no voices.
+
+Re-encoded from the 320 kbps source to 64 kbps AAC with macOS `afconvert`,
+which takes 6.0 MB to 1.2 MB. The whole page without it is 47 KB, and the
+licence permits the change.
+
+The attribution this licence requires is on the page itself, beside the
+control that plays the track.
