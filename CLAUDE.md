@@ -215,17 +215,13 @@ Renaming the repo means changing the base in all three places:
 `pnpm typecheck` runs `astro check`, not bare `tsc` --- `tsc` cannot parse
 `.astro` files and would report a green it hasn't earned.
 
-## Frontend design
+## The words in the interface
 
 Anthropic's rules, quoted from the `frontend-design` skill in
 [`anthropics/claude-code`](https://github.com/anthropics/claude-code/blob/main/plugins/frontend-design/skills/frontend-design/SKILL.md).
 They are here rather than loaded because this repo has no plugin to load them
 from. The failure they exist for has a name: given no explicit direction a
-model returns the highest-probability answer, and the most common "nice button"
-in the training data is Inter, a purple gradient and a card grid ---
-*distributional convergence*.
-
-On words:
+model returns the highest-probability answer --- *distributional convergence*.
 
 - "Words appear in a design for one reason: to make it easier to understand,
   and therefore easier to use."
@@ -239,22 +235,8 @@ On words:
 - "Keep the register conversational and tuned: plain verbs, sentence case, no
   filler."
 
-On everything that is not words:
-
-- "Structural devices, numbering, eyebrows, dividers, labels, should encode
-  something true about the content, not decorate it." Numbered markers are
-  "only appropriate if the content actually is a sequence."
-
-On the order of work:
-
-- "Work in two passes. First, brainstorm a short design plan based on the
-  human's design brief... Then review that plan against the brief before
-  building." Only then write the code.
-
-What these caught here, when nothing else did: a note beside the scale toggle
-that labelled, explained and quoted a statistic all at once, and a calendar
-lane that spent a second colour saying what its widths already said while clay
-meant both duration and progress at the same time.
+What that caught here: a note beside the scale toggle that labelled, explained
+and quoted a statistic all at once.
 
 ## Everything written into this repo is in English
 
