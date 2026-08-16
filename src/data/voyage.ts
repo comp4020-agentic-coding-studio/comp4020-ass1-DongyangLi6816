@@ -35,11 +35,25 @@ export interface Stop {
    *
    * The traditional identifications cluster hard around Sicily and the
    * Tyrrhenian coast — seven pairs sit closer together than a marker is wide,
-   * which makes the ones underneath unclickable. The route is drawn from the
-   * true positions; only the buttons move, and only by a couple of points.
-   * `MAX_NUDGE` and the collision test keep that honest.
+   * which makes the ones underneath unclickable. Only the buttons move, and
+   * only by a couple of points. `MAX_NUDGE` and the collision test keep that
+   * honest.
    */
   nudge?: readonly [number, number];
+  /**
+   * Sea marks the leg *arriving* at this stop is drawn through, in degrees.
+   *
+   * A voyage is not a straight line between two dots, and drawn as one it goes
+   * over land: Ismarus to the Lotus-Eaters cut across the Peloponnese, and
+   * Ogygia to Scheria crossed the whole of North Africa. These bend the leg
+   * back onto water and round the headlands the poem actually names.
+   *
+   * They are drawing, not data. The poem gives no course, so no duration, no
+   * distance and no claim is derived from them — they only decide where a line
+   * on a picture goes, and the test that guards them only asks that they are
+   * inside the map frame.
+   */
+  via?: readonly (readonly [number, number])[];
 }
 
 /** Largest marker offset allowed, in percentage points. Enforced by test. */
@@ -62,6 +76,76 @@ export function project(stop: Pick<Stop, "lon" | "lat">): {
   return {
     x: ((stop.lon - lonMin) / (lonMax - lonMin)) * 100,
     y: ((latMax - stop.lat) / (latMax - latMin)) * 100,
+  };
+}
+
+/** Points along the drawn route, sampled from a curve through the sea marks. */
+export interface RoutePoint {
+  x: number;
+  y: number;
+}
+
+/**
+ * The route as a smooth curve rather than a polyline.
+ *
+ * Catmull-Rom through every stop and every sea mark: it passes exactly through
+ * its control points, which is what keeps the ship arriving on the marker, and
+ * it needs no hand-authored tangents. Sampled here into plain points so the
+ * page, the ship and the length arithmetic all work off one array in one
+ * coordinate space.
+ */
+const SAMPLES_PER_SEGMENT = 12;
+
+export function routePoints(): {
+  points: RoutePoint[];
+  /** Index into `points` of each stop, in order. */
+  stopAt: number[];
+} {
+  const controls: RoutePoint[] = [];
+  const stopAt: number[] = [];
+
+  for (const stop of STOPS) {
+    for (const [lon, lat] of stop.via ?? []) {
+      controls.push(project({ lon, lat }));
+    }
+    stopAt.push(controls.length);
+    controls.push(projectMarker(stop));
+  }
+
+  const at = (i: number) =>
+    controls[Math.max(0, Math.min(controls.length - 1, i))]!;
+  const points: RoutePoint[] = [];
+
+  for (let i = 0; i < controls.length - 1; i++) {
+    const p0 = at(i - 1);
+    const p1 = at(i);
+    const p2 = at(i + 1);
+    const p3 = at(i + 2);
+    for (let s = 0; s < SAMPLES_PER_SEGMENT; s++) {
+      const t = s / SAMPLES_PER_SEGMENT;
+      const t2 = t * t;
+      const t3 = t2 * t;
+      points.push({
+        x:
+          0.5 *
+          (2 * p1.x +
+            (-p0.x + p2.x) * t +
+            (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 +
+            (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+        y:
+          0.5 *
+          (2 * p1.y +
+            (-p0.y + p2.y) * t +
+            (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 +
+            (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3),
+      });
+    }
+  }
+  points.push(at(controls.length - 1));
+
+  return {
+    points,
+    stopAt: stopAt.map((c) => Math.min(points.length - 1, c * SAMPLES_PER_SEGMENT)),
   };
 }
 
@@ -114,6 +198,14 @@ export const STOPS: Stop[] = [
     book: "Book 9",
     lon: 11.1,
     lat: 33.9,
+    // Round Cape Malea, because the poem says so and because the straight
+    // line went over the Peloponnese. This is the hinge of the voyage: the
+    // north wind here is what blows the fleet off the map.
+    via: [
+      [24.4, 37.6],
+      [23.1, 36.1],
+      [17.5, 34.4],
+    ],
     days: 9,
     daysNote: "nine days blown off course past Cape Malea",
     blurb:
@@ -176,6 +268,10 @@ export const STOPS: Stop[] = [
     book: "Book 11",
     lon: 9.4,
     lat: 43.3,
+    via: [
+      [12.3, 40.3],
+      [10.8, 42.4],
+    ],
     days: null,
     blurb:
       "At Circe's direction he sails to the edge of Oceanus to ask the dead prophet Tiresias how to get home. He meets his own mother there and learns she died of missing him. Three times he tries to hold her; three times his hands pass through the air.",
@@ -187,6 +283,7 @@ export const STOPS: Stop[] = [
     book: "Book 12",
     lon: 14.3,
     lat: 40.4,
+    via: [[11.6, 41.5]],
     days: null,
     blurb:
       "He stops the crew's ears with wax and has himself lashed upright to the mast, ordering them to bind him tighter if he begs. He is the only man to hear the song and live. The ship loses nobody and does not slow down.",
@@ -199,6 +296,7 @@ export const STOPS: Stop[] = [
     book: "Book 12",
     lon: 15.6,
     lat: 38.2,
+    via: [[14.8, 39.3]],
     days: null,
     blurb:
       "Circe's advice is to hug the cliff, because losing six men beats losing the ship. He does not tell the crew. Scylla's six heads come down at once and take six of his best, calling his name as they go.",
@@ -211,6 +309,7 @@ export const STOPS: Stop[] = [
     book: "Book 12",
     lon: 14.0,
     lat: 37.1,
+    via: [[15.5, 36.7]],
     days: 45,
     daysNote: "a month becalmed, six days feasting, nine days adrift",
     blurb:
@@ -224,6 +323,15 @@ export const STOPS: Stop[] = [
     book: "Book 5",
     lon: -5.5,
     lat: 35.9,
+    // Thrinacia's traditional coordinate sits inland on Sicily, so the leg
+    // west has to be taken out to sea before it turns.
+    via: [
+      [12.3, 36.3],
+      [10.5, 37.5],
+      [8.0, 37.6],
+      [2.0, 37.6],
+      [-2.5, 36.2],
+    ],
     days: 2576,
     daysNote: "seven years held, four days building the raft, seventeen sailing",
     blurb:
@@ -236,6 +344,14 @@ export const STOPS: Stop[] = [
     book: "Books 6–8",
     lon: 19.9,
     lat: 39.6,
+    // Drawn straight this leg crossed Algeria, Tunisia and Libya end to end.
+    via: [
+      [-1.5, 36.4],
+      [4.0, 37.6],
+      [9.5, 37.6],
+      [13.2, 35.8],
+      [18.2, 37.4],
+    ],
     days: null,
     blurb:
       "Shipwrecked and naked, he is found by Nausicaa doing the palace laundry. At dinner the court bard sings about the Trojan War and Odysseus weeps into his cloak, which is how they learn who he is. He tells them the whole voyage — everything above is him talking.",

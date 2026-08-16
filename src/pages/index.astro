@@ -9,6 +9,7 @@ import {
   TOTAL_STATED_DAYS,
   dayAt,
   projectMarker,
+  routePoints,
 } from "../data/voyage.ts";
 import "../styles/global.css";
 
@@ -20,12 +21,13 @@ const markers = STOPS.map((stop, i) => ({
   day: dayAt(i),
 }));
 
-// The route is drawn between marker centres, not true positions, so the line,
-// the buttons and the ship all agree. The nudges that separate the two are at
-// most three percentage points and exist only so clustered stops stay
-// clickable; a ship that docks two marker-widths off the marker the visitor
-// just pressed reads as a bug, and no one can see the difference on a coast.
-const route = markers.map((m) => `${m.marker.x},${m.marker.y}`).join(" ");
+// A curve through the stops and the sea marks between them, not a polyline:
+// a voyage drawn as straight hops reads as a network diagram, and several of
+// those hops went over land. The curve passes exactly through each stop, so
+// the line, the buttons and the ship still agree to the pixel.
+const route = routePoints()
+  .points.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`)
+  .join(" ");
 const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
 ---
 
@@ -173,7 +175,12 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
     </main>
 
     <script>
-      import { BENCHMARKS, STOPS, dayAt, projectMarker } from "../data/voyage.ts";
+      import {
+        BENCHMARKS,
+        STOPS,
+        dayAt,
+        routePoints,
+      } from "../data/voyage.ts";
 
       const timeline = document.querySelector<HTMLInputElement>("#timeline")!;
       const markers = [
@@ -203,13 +210,13 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
        * is no single scale factor to convert by either: x and y have to be
        * scaled separately, which is what this does.
        */
-      const NODES = STOPS.map((stop) => projectMarker(stop));
+      const { points: ROUTE, stopAt: STOP_AT } = routePoints();
 
       function metrics(box: DOMRect): { cum: number[]; total: number } {
         const cum = [0];
-        for (let i = 1; i < NODES.length; i++) {
-          const a = NODES[i - 1]!;
-          const b = NODES[i]!;
+        for (let i = 1; i < ROUTE.length; i++) {
+          const a = ROUTE[i - 1]!;
+          const b = ROUTE[i]!;
           cum.push(
             cum[i - 1]! +
               Math.hypot(
@@ -221,12 +228,36 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         return { cum, total: cum[cum.length - 1]! };
       }
 
-      /** Where the ship is, given a fractional position along the stop list. */
-      function pointAt(progress: number): { x: number; y: number } {
+      /**
+       * How far along the drawn line the ship is, for a fractional position in
+       * the stop list.
+       *
+       * Interpolating by *length* rather than by sample index is what keeps the
+       * ship at a steady speed: the curve is sampled evenly in its parameter,
+       * not in distance, so a long leg and a short one carry the same number of
+       * samples and stepping by index would sprint the long ones.
+       */
+      function lengthAt(progress: number, cum: number[]): number {
         const i = Math.max(0, Math.min(STOPS.length - 2, Math.floor(progress)));
         const t = Math.max(0, Math.min(1, progress - i));
-        const a = NODES[i]!;
-        const b = NODES[i + 1]!;
+        const from = cum[STOP_AT[i]!]!;
+        const to = cum[STOP_AT[i + 1]!]!;
+        return from + (to - from) * t;
+      }
+
+      /** The point at a given distance along the sampled curve. */
+      function pointAtLength(length: number, cum: number[]): { x: number; y: number } {
+        let lo = 0;
+        let hi = cum.length - 1;
+        while (lo < hi - 1) {
+          const mid = (lo + hi) >> 1;
+          if (cum[mid]! <= length) lo = mid;
+          else hi = mid;
+        }
+        const span = cum[hi]! - cum[lo]!;
+        const t = span === 0 ? 0 : (length - cum[lo]!) / span;
+        const a = ROUTE[lo]!;
+        const b = ROUTE[hi]!;
         return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
       }
 
@@ -234,9 +265,16 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         const box = frame.getBoundingClientRect();
         if (box.width === 0) return;
 
-        const here = pointAt(progress);
-        const ahead = pointAt(Math.min(STOPS.length - 1, progress + 0.01));
-        const behind = pointAt(Math.max(0, progress - 0.01));
+        const { cum, total } = metrics(box);
+        const travelled = lengthAt(progress, cum);
+        const here = pointAtLength(travelled, cum);
+
+        // Heading from a fixed distance along the line rather than a fixed
+        // step in progress: near a tight bend the two are not the same, and a
+        // progress step gives a bow that swings before the ship turns.
+        const step = Math.max(2, total * 0.004);
+        const ahead = pointAtLength(Math.min(total, travelled + step), cum);
+        const behind = pointAtLength(Math.max(0, travelled - step), cum);
 
         // The frame is wider than it is tall and the route's user space is
         // stretched to match, so the heading has to be worked out in pixels.
@@ -262,10 +300,6 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
           (here.y / 100) * box.height
         }px) translate(-50%, -50%) rotate(${heading}deg)${mirror}`;
 
-        const { cum, total } = metrics(box);
-        const i = Math.max(0, Math.min(STOPS.length - 2, Math.floor(progress)));
-        const t = Math.max(0, Math.min(1, progress - i));
-        const travelled = cum[i]! + (cum[i + 1]! - cum[i]!) * t;
         sailed.style.strokeDasharray = String(total);
         sailed.style.strokeDashoffset = String(total - travelled);
       }
