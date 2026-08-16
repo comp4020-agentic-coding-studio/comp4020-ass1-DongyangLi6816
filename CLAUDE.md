@@ -215,6 +215,27 @@ Renaming the repo means changing the base in all three places:
 `pnpm typecheck` runs `astro check`, not bare `tsc` --- `tsc` cannot parse
 `.astro` files and would report a green it hasn't earned.
 
+## The interface does not explain itself
+
+Nothing on the page explains how the page works. No hint under a control, no
+note saying what a colour means, no caption describing what the visitor is
+looking at. Every one of those written here was deleted within the hour, and
+every one had been added to patch a design that wasn't saying it: a note
+explaining what two colours meant, when the fix was to stop using two colours;
+a hint telling the visitor to drag the timeline, when the control's own label
+already said so.
+
+State it the way round that works, because a bare "don't" is weak here --- the
+model reads a prohibition and still writes the sentence, so pair it with the
+test it is supposed to fail:
+
+> **Every element is either something the visitor operates or something the
+> source says. Anything that is neither is scaffolding: take it out, and fix
+> whatever made it seem necessary.**
+
+Accessible names, labels and `aria-*` text are not this. They are the
+interface, spoken.
+
 ## Everything written into this repo is in English
 
 Everything committed here is English, whatever language the prompt was in: page
