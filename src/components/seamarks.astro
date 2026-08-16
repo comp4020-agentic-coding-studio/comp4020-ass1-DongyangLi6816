@@ -99,26 +99,6 @@ const LESSER = winds((w) => w % 4 !== 0);
   focusable="false"
 >
   <defs>
-    {/* A painter's incision wanders; a vector path does not. A little
-        turbulence displaces the coastline just enough that the edge reads as
-        cut by hand rather than plotted. */}
-    <filter id="incised" x="-2%" y="-2%" width="104%" height="104%">
-      <feTurbulence
-        type="fractalNoise"
-        baseFrequency="0.02"
-        numOctaves="2"
-        seed="7"
-        result="noise"
-      />
-      <feDisplacementMap
-        in="SourceGraphic"
-        in2="noise"
-        scale="3"
-        xChannelSelector="R"
-        yChannelSelector="G"
-      />
-    </filter>
-
     {/* The land carries no pattern --- chart-makers left interiors bare --- but
         it is a fired surface, not a printed one. A sparse two-tone stipple
         gives it the tooth of clay without becoming a motif. */}

@@ -335,11 +335,6 @@ body::after {
   stroke: var(--land-edge);
   stroke-width: 1.2;
   vector-effect: non-scaling-stroke;
-
-  /* The coastline is the one incised line on the map, so it gets the wobble
-     of a hand-cut one. Filtering the paths rather than the whole layer keeps
-     the markers and the route perfectly sharp on top. */
-  filter: url("#incised");
 }
 
 /* ---------- sea marks ---------- */

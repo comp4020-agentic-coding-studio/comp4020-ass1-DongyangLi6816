@@ -1,7 +1,8 @@
 ---
 import Placenames from "../components/placenames.astro";
 import Seamarks from "../components/seamarks.astro";
-import coastline from "../components/coastline.svg?raw";
+import rawCoastline from "../components/coastline.svg?raw";
+import { roughen } from "../data/coastline.ts";
 import {
   BENCHMARKS,
   STOPS,
@@ -26,6 +27,9 @@ const markers = STOPS.map((stop, i) => ({
 const route = routePoints()
   .points.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`)
   .join(" ");
+// Roughened here, at build time. It used to be an SVG filter in the browser,
+// which WebKit dropped on every large landmass --- see src/data/coastline.ts.
+const coastline = roughen(rawCoastline);
 const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
 ---
 
@@ -236,34 +240,6 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
       const panel = document.querySelector<HTMLElement>("#scene")!;
       const map = document.querySelector<HTMLElement>("#map")!;
       const clay = document.querySelector<SVGPatternElement>("#clay-ground")!;
-      const turbulence = document.querySelector<SVGFETurbulenceElement>(
-        "#incised feTurbulence",
-      )!;
-      const displace = document.querySelector<SVGFEDisplacementMapElement>(
-        "#incised feDisplacementMap",
-      )!;
-
-      /**
-       * Hold the incised coastline at its drawn size.
-       *
-       * The displacement is in the coastline's user units, so the zoom
-       * multiplies it: three units is a 2.6px wobble at rest and a 13px one at
-       * 5x, which stops reading as a cut line and starts reading as a coast
-       * that has melted. Sicily loses its corners. Same for the turbulence
-       * wavelength, which stretches from a fine grain into a slow swell.
-       *
-       * Only touched when the scale actually changes --- panning calls into
-       * the view on every pointer event, and re-rasterising a filter that size
-       * at that rate is not free.
-       */
-      let filterZoom = 0;
-
-      function holdIncision() {
-        if (Math.abs(z - filterZoom) < 0.001) return;
-        filterZoom = z;
-        displace.setAttribute("scale", String(3 / z));
-        turbulence.setAttribute("baseFrequency", String(0.02 * z));
-      }
 
       const el = (id: string) => document.getElementById(id)!;
       const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
@@ -352,7 +328,6 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         // The clay tooth is a surface, not a feature of the terrain: left to
         // scale it stops being tooth at about 1.5x and becomes polka dots.
         clay.setAttribute("patternTransform", `scale(${1 / z})`);
-        holdIncision();
         drawShip(progress);
       }
 
@@ -558,7 +533,6 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
           frame.style.setProperty("--z", String(z));
           map.classList.toggle("is-zoomed", z > 1.001);
           clay.setAttribute("patternTransform", `scale(${1 / z})`);
-          holdIncision();
         }
         hasSelected = true;
         const dwell = dwellTime(Math.abs(toDay - fromDay));
