@@ -14,62 +14,60 @@ rail draws it twice, as told and as counted, so the two come apart.
 
 ## The moments that mattered
 
-### The agent's list looked complete, and was not
+### A rule I added, proved, and could not afford
 
 A voyage table the agent produced covered 7 of the poem's 18 stops --- missing
-exactly where the fleet dies (Cyclops, Laestrygonians, Scylla, the Cattle of the
-Sun). Re-prompting would have fixed that one table. Instead I had it diagnose
-why: it had picked beats for slider-appeal, presented a selection as an
-enumeration, and searched only to confirm it. The fix went into `CLAUDE.md`
+exactly where the fleet dies. Re-prompting would have fixed that one table.
+Instead I had it diagnose why: it had picked beats for slider-appeal, presented
+a selection as an enumeration, and searched only to confirm it. The fix went
+into `CLAUDE.md`
 ([`f7eb8bb`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-DongyangLi6816/commit/f7eb8bb)):
 enumerate before selecting, run a disconfirming search, state coverage or admit
-it's a selection, leave gaps unfilled.
+it is a selection.
 
-Verified by reuse: asking "what do Odyssey summaries omit" caught a gap in my
-own "complete" list --- Elpenor's burial, folded into the Circe stop
-([source](https://en.wikipedia.org/wiki/Elpenor)).
+It kept earning its place. Enumerating the thirteen returns Homer narrates
+caught me about to write that Menelaus drifted seven years --- the seven
+belongs to Aegisthus's reign. A disconfirming query overturned a thesis I had
+promoted to a design pillar. Both would have shipped as fact.
 
-### The rule worked, and I removed it anyway
-
-Those rules kept earning their place. Enumerating all thirteen returns Homer
-narrates caught me about to write that Menelaus drifted seven years --- the
-seven belongs to Aegisthus's reign. A disconfirming query overturned a thesis I
-had already promoted to a design pillar: I had claimed the ancients painted
-monsters and not waiting, and LIMC says the opposite, Circe at 71 catalogue
-entries against one for the Laestrygonians. Both would have shipped as fact.
-
-They also tripled the cost: research passes went from roughly 54k tokens to
-146-163k. Diagnosing why was the useful part. The rule governs *the list you
-hand me*, and I applied it to *the work* --- enumerating fourteen stops is
-cheap, investigating all fourteen equally is not.
-
-The honest fix was to bound the rule. The affordable one, on a fixed quota, was
-to remove it
-([`69cf810`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-DongyangLi6816/commit/69cf810)) ---
-an exact revert of the commit that added it, so the pair
+It also tripled the cost: research went from roughly 54k tokens a pass to
+146-163k. The rule governs *the list you hand me*, and I had applied it to *the
+work*. The honest fix was to bound it; the affordable one was to remove it
+([`69cf810`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-DongyangLi6816/commit/69cf810))
+--- an exact revert, so the pair
 ([`f7eb8bb...69cf810`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-DongyangLi6816/compare/f7eb8bb...69cf810))
-is the whole life of the rule. A decision, not a lapse: it was right and I
-could not afford it. What survives goes into tests instead of prose, where it
-costs nothing --- the voyage data asserts its own day-total, so a duration
-cannot drift without turning a check red.
+is the whole life of the rule. A decision, not a lapse.
+
+### The check was green and it was about nothing
+
+Eighty-one tests, and none of them can tell that a page feels wrong. Every
+fault of that kind --- the pacing, the teleport, a frame of reversed motion ---
+I found by using it. The worst came *after* the agent measured it: clicking the
+rail teleported the ship, it timed the fix at 988ms and called it done. `element.click()` on the label column runs the animation;
+a press on the rail itself ran `scrubTo` and set the position outright, so the
+pacing function was never called for that gesture at all
+([`de743a8`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-DongyangLi6816/commit/de743a8)).
+The verification existed, was green, and was about a code path nobody uses.
+
+An agent that picks its own test picks one that passes: the knowledge without
+the independence. So the rule is about the gesture, not the handler, and it
+hands taste back to me rather than letting a measurement settle it
+([`abedd71`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-DongyangLi6816/commit/abedd71)).
+It paid at once: the next fault was traced frame by frame to a
+`requestAnimationFrame` timestamp preceding its own start, and fixed across all
+five clocks rather than the one that showed
+([`bd760e5`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-DongyangLi6816/commit/bd760e5)).
 
 ### Every sentence I wrote was patching a design
 
-Three strings came out of the page in twenty minutes: a note explaining the two
-colours in the calendar
-([`dad271c`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-DongyangLi6816/commit/dad271c)),
-a hint telling the visitor to drag the timeline, and the statistic under it
+Three strings came out of the page in twenty minutes
 ([`2cfbb9c`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-DongyangLi6816/commit/2cfbb9c)).
-Every one had been added to explain something the design was failing to say.
-The colour note's real fix was to stop using two colours
-([`f011dfa`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-DongyangLi6816/commit/f011dfa));
-the drag hint repeated the control's own label.
-
-It has a name — *distributional convergence* — and Anthropic ship rules for it
-in their `frontend-design` skill. I wrote my own rule, found theirs, and
-swapped mine out
+Each had been added to explain something the design was failing to say; the
+colour note's real fix was to stop using two colours
+([`f011dfa`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-DongyangLi6816/commit/f011dfa)).
+It has a name --- *distributional convergence* --- and Anthropic ship rules for
+it. I wrote my own, found theirs, and swapped mine out
 ([`d6ae9a9...fdb474a`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-DongyangLi6816/compare/d6ae9a9...fdb474a)).
-Theirs catches more --- "let each element do exactly one job" is what that note
-failed, doing three at once --- and is looser about explanatory copy than the
-reading that got the strings deleted. I wrote the loosening into the commit
-rather than pretend the swap was free.
+Theirs catches more, and is looser about explanatory copy than the reading that
+deleted the strings. I wrote the loosening into the commit rather than pretend
+the swap was free.
