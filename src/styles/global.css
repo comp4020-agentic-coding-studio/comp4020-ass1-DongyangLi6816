@@ -733,10 +733,10 @@ body::after {
   opacity: 0.36;
 
   /* One pixel so a stop that takes no time at all is still findable on the
-     lane. The width that carries meaning is measured, not floored --- this is
-     a minimum for the eye, and the eight stops it applies to are named in the
-     note beside the toggle. */
+     lane. The width that carries meaning is measured, not floored: this is a
+     minimum for the eye, and it is deliberately not a minimum for the mouse. */
   min-width: 1px;
+  cursor: pointer;
   transition: opacity 0.25s ease;
 }
 
@@ -747,6 +747,14 @@ body::after {
 
 .cal-block.is-past {
   opacity: 0.46;
+}
+
+.cal-block:hover {
+  opacity: 0.7;
+}
+
+.cal-block.is-active:hover {
+  opacity: 1;
 }
 
 /* Inset explicitly, in both directions.

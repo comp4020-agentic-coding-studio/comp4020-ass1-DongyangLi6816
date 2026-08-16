@@ -811,6 +811,12 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         const el = document.createElement("span");
         el.className = "cal-block";
         el.dataset.index = String(i);
+        // The target is the block, so it is exactly as big as the stay is
+        // long. On the calendar that means Ogygia is most of the lane and a
+        // stop the poem gives no duration to is a hairline you cannot really
+        // hit --- which is the lane's whole argument, not a shortcoming of it.
+        // Every stop stays reachable from the rail below and from the map.
+        el.addEventListener("click", () => show(i));
         track.append(el);
         return { el };
       });
