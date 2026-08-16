@@ -112,6 +112,22 @@ export function routePoints(): {
     controls.push(projectMarker(stop));
   }
 
+  const points = sampleCurve(controls);
+
+  return {
+    points,
+    stopAt: stopAt.map((c) => Math.min(points.length - 1, c * SAMPLES_PER_SEGMENT)),
+  };
+}
+
+/**
+ * Catmull-Rom through a list of control points, sampled into plain points.
+ *
+ * Shared by both courses on the map --- the voyage and the nostos it should
+ * have been --- so the two lines are drawn by the same hand and a change to
+ * the curve cannot move one without the other.
+ */
+function sampleCurve(controls: RoutePoint[]): RoutePoint[] {
   const at = (i: number) =>
     controls[Math.max(0, Math.min(controls.length - 1, i))]!;
   const points: RoutePoint[] = [];
@@ -143,10 +159,7 @@ export function routePoints(): {
   }
   points.push(at(controls.length - 1));
 
-  return {
-    points,
-    stopAt: stopAt.map((c) => Math.min(points.length - 1, c * SAMPLES_PER_SEGMENT)),
-  };
+  return points;
 }
 
 /** Where the marker button goes: the true position plus its legibility nudge. */
@@ -167,6 +180,21 @@ export function markerGap(
   return Math.hypot(a.x - b.x, ((a.y - b.y) * 4.4) / 7.3);
 }
 
+/**
+ * Down the Aegean and round Cape Malea.
+ *
+ * The hinge of the whole page, and the reason it is a constant rather than two
+ * pairs of numbers typed twice. Both courses on the map run through here: the
+ * voyage that happened and the nostos that should have. They are one line as
+ * far as Malea and separate after it --- north-west and home in six days, or
+ * south-west on a north wind and home in twenty years. Move these and both
+ * move together, which is the only way the split stays a split.
+ */
+const MALEA_APPROACH = [
+  [24.4, 37.6],
+  [23.1, 36.1],
+] as const;
+
 export const STOPS: Stop[] = [
   {
     id: "troy",
@@ -177,7 +205,7 @@ export const STOPS: Stop[] = [
     lat: 39.96,
     days: 0,
     blurb:
-      "Ten years of siege end. Odysseus loads twelve ships with the spoils of Troy and turns west. Every other Greek captain is doing the same thing on the same day, out of the same harbour.",
+      "Ten years of siege end. Odysseus loads twelve ships with the spoils of Troy and turns west. Every other Greek captain is doing the same thing on the same day, out of the same harbour — and Diomedes, the poem notes in Book 3, was moored at home on the fourth.",
   },
   {
     id: "cicones",
@@ -200,12 +228,9 @@ export const STOPS: Stop[] = [
     lat: 33.9,
     // Round Cape Malea, because the poem says so and because the straight
     // line went over the Peloponnese. This is the hinge of the voyage: the
-    // north wind here is what blows the fleet off the map.
-    via: [
-      [24.4, 37.6],
-      [23.1, 36.1],
-      [17.5, 34.4],
-    ],
+    // north wind here is what blows the fleet off the map, and the last point
+    // below is where this course stops agreeing with NOSTOS_VIA.
+    via: [...MALEA_APPROACH, [17.5, 34.4]] as const,
     days: 9,
     daysNote: "nine days blown off course past Cape Malea",
     blurb:
@@ -558,3 +583,72 @@ export function storyPosition(index: number): number {
 
 /** How many stops give no duration at all. Shown on the page, not hidden. */
 export const STOPS_WITHOUT_DURATION = STOPS.filter((s) => s.days === null).length;
+
+/* ---------- the nostos ---------- */
+
+/**
+ * The voyage that should have happened: Troy to Ithaca, the short way.
+ *
+ * Same harbour, same island, no north wind. It runs with the real course down
+ * the Aegean and round Cape Malea --- MALEA_APPROACH, shared, not copied ---
+ * and then turns north-west up the far side of the Peloponnese instead of
+ * being blown into the Libyan sea.
+ *
+ * The last two marks keep it off the land: the turn north is taken outside
+ * Pylos rather than through it, and the run up to Ithaca passes seaward of
+ * Zakynthos.
+ */
+export const NOSTOS_VIA = [
+  ...MALEA_APPROACH,
+  [21.4, 36.3],
+  [20.9, 37.6],
+] as const;
+
+/** A stop by id, so the nostos can name its two ends rather than index them. */
+function stopById(id: string): Stop {
+  const stop = STOPS.find((s) => s.id === id);
+  if (!stop) throw new Error(`no stop with id ${id}`);
+  return stop;
+}
+
+/** Troy, the sea marks, Ithaca --- the nostos course end to end. */
+export function nostosCourse(): { lon: number; lat: number }[] {
+  return [
+    stopById("troy"),
+    ...NOSTOS_VIA.map(([lon, lat]) => ({ lon, lat })),
+    stopById("ithaca"),
+  ];
+}
+
+/** Length of the nostos course, in nautical miles, measured as it is drawn. */
+export function nostosDistance(): number {
+  const path = nostosCourse();
+  let total = 0;
+  for (let i = 1; i < path.length; i++) {
+    total += nauticalMiles(path[i - 1]!, path[i]!);
+  }
+  return total;
+}
+
+/** The nostos course as drawn: the same curve the real voyage is sampled from. */
+export function nostosRoutePoints(): RoutePoint[] {
+  return sampleCurve([
+    projectMarker(stopById("troy")),
+    ...NOSTOS_VIA.map(([lon, lat]) => project({ lon, lat })),
+    projectMarker(stopById("ithaca")),
+  ]);
+}
+
+/**
+ * The day the nostos makes Ithaca. Derived, never typed in.
+ *
+ * Course length over the rate the page already uses for every crossing the
+ * poem does not time --- Casson's recorded fleet, 550 nautical miles in seven
+ * days. So this number is not a claim about Odysseus at all: it is how long
+ * that measured ancient fleet would have taken over this water, and the whole
+ * comparison rests on a speed the page was already trusting.
+ *
+ * Rounded up rather than to nearest: a crossing that runs into a seventh day
+ * is not home on the sixth, and rounding the benchmark down would flatter it.
+ */
+export const NOSTOS_DAYS = Math.ceil(nostosDistance() / SAILING_NM_PER_DAY);
