@@ -439,16 +439,17 @@ body::after {
 .route polyline {
   fill: none;
   stroke: var(--clay);
-  stroke-width: 1.5;
-  stroke-dasharray: 4 6;
   opacity: 0.22;
 }
 
 /* The part already sailed: solid where the rest is dashed, so the two read as
-   different marks and not merely as two brightnesses of the same one. */
+   different marks and not merely as two brightnesses of the same one.
+
+   Widths and dash lengths are set from the script, in user units --- stating
+   them here in px would put them back in the space the two engines disagree
+   about. */
 #route-sailed {
   stroke: var(--clay-bright);
-  stroke-width: 1.4;
   opacity: 0.5;
 }
 

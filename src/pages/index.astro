@@ -24,8 +24,23 @@ const markers = STOPS.map((stop, i) => ({
 // a voyage drawn as straight hops reads as a network diagram, and several of
 // those hops went over land. The curve passes exactly through each stop, so
 // the line, the buttons and the ship still agree to the pixel.
+// Drawn in the coastline's own coordinate space rather than in percentages.
+//
+// The route used to be a 0-100 box stretched with `preserveAspectRatio="none"`,
+// which forced `vector-effect: non-scaling-stroke` on it to stop the stroke
+// going oval --- and the two engines disagree about whether a non-scaling
+// stroke's *dash* lengths follow an ancestor's CSS transform. Compensating for
+// one broke the other: dashes read as solid on Chrome uncompensated and on
+// WebKit compensated. In a box with the map's real aspect ratio the stroke is
+// round without any vector-effect, and dash lengths are ordinary user units
+// that both engines treat the same way.
+const MAP_W = 1600;
+const MAP_H = 953.8;
 const route = routePoints()
-  .points.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`)
+  .points.map(
+    (p) =>
+      `${((p.x / 100) * MAP_W).toFixed(1)},${((p.y / 100) * MAP_H).toFixed(1)}`,
+  )
   .join(" ");
 // Roughened here, at build time. It used to be an SVG filter in the browser,
 // which WebKit dropped on every large landmass --- see src/data/coastline.ts.
@@ -82,8 +97,7 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
             <Placenames />
             <svg
               class="route"
-              viewBox="0 0 100 100"
-              preserveAspectRatio="none"
+              viewBox={`0 0 ${MAP_W} ${MAP_H}`}
               aria-hidden="true"
               focusable="false"
             >
@@ -91,12 +105,8 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
                   voyage; the solid one is drawn in behind the ship by pulling
                   its dash offset back, so what has been sailed and what has
                   not are different marks rather than different colours. */}
-              <polyline points={route} vector-effect="non-scaling-stroke" />
-              <polyline
-                id="route-sailed"
-                points={route}
-                vector-effect="non-scaling-stroke"
-              />
+              <polyline points={route} />
+              <polyline id="route-sailed" points={route} />
             </svg>
 
             {/* The ship rides the route by transform, in pixels, so moving it
@@ -247,19 +257,34 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
       const stillness = window.matchMedia("(prefers-reduced-motion: reduce)");
 
       /**
-       * The route in the same percentage space the markers use.
+       * The route, and its length, in the space it is drawn in --- the map's
+       * own 1600 x 953.8 box.
        *
-       * Lengths along it have to be measured in *screen pixels*, not in the
-       * svg's user units, and that is not a stylistic choice. The route carries
-       * `vector-effect="non-scaling-stroke"`, which makes the browser generate
-       * the stroke --- dash pattern included --- after the transform, in device
-       * space. Feeding it user-unit lengths made the dash pattern repeat several
-       * times along the route, so stretches the ship had not reached yet were
-       * drawn as sailed. The svg is also `preserveAspectRatio="none"`, so there
-       * is no single scale factor to convert by either: x and y have to be
-       * scaled separately, which is what this does.
+       * Not in screen pixels, which is where this used to live. Screen pixels
+       * meant the dash arithmetic had to know the zoom, and knowing the zoom
+       * meant depending on whether a non-scaling stroke's dash pattern follows
+       * an ancestor's CSS transform. Chrome says it does, WebKit says it does
+       * not, so either answer was wrong on one of them --- solid dashes on
+       * Chrome uncompensated, solid dashes on iPad compensated. In plain user
+       * units there is nothing left to disagree about.
        */
+      const MAP_W = 1600;
+      const MAP_H = 953.8;
       const { points: ROUTE, stopAt: STOP_AT } = routePoints();
+
+      const CUM = ROUTE.reduce<number[]>((acc, point, i) => {
+        if (i === 0) return [0];
+        const previous = ROUTE[i - 1]!;
+        return [
+          ...acc,
+          acc[i - 1]! +
+            Math.hypot(
+              ((point.x - previous.x) / 100) * MAP_W,
+              ((point.y - previous.y) / 100) * MAP_H,
+            ),
+        ];
+      }, []);
+      const ROUTE_LENGTH = CUM[CUM.length - 1]!;
 
       /**
        * Zoom and pan.
@@ -362,25 +387,6 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         applyView();
       }
 
-      function metrics(box: { w: number; h: number }): {
-        cum: number[];
-        total: number;
-      } {
-        const cum = [0];
-        for (let i = 1; i < ROUTE.length; i++) {
-          const a = ROUTE[i - 1]!;
-          const b = ROUTE[i]!;
-          cum.push(
-            cum[i - 1]! +
-              Math.hypot(
-                ((b.x - a.x) / 100) * box.w,
-                ((b.y - a.y) / 100) * box.h,
-              ),
-          );
-        }
-        return { cum, total: cum[cum.length - 1]! };
-      }
-
       /**
        * How far along the drawn line the ship is, for a fractional position in
        * the stop list.
@@ -390,25 +396,25 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
        * not in distance, so a long leg and a short one carry the same number of
        * samples and stepping by index would sprint the long ones.
        */
-      function lengthAt(progress: number, cum: number[]): number {
+      function lengthAt(progress: number): number {
         const i = Math.max(0, Math.min(STOPS.length - 2, Math.floor(progress)));
         const t = Math.max(0, Math.min(1, progress - i));
-        const from = cum[STOP_AT[i]!]!;
-        const to = cum[STOP_AT[i + 1]!]!;
+        const from = CUM[STOP_AT[i]!]!;
+        const to = CUM[STOP_AT[i + 1]!]!;
         return from + (to - from) * t;
       }
 
       /** The point at a given distance along the sampled curve. */
-      function pointAtLength(length: number, cum: number[]): { x: number; y: number } {
+      function pointAtLength(length: number): { x: number; y: number } {
         let lo = 0;
-        let hi = cum.length - 1;
+        let hi = CUM.length - 1;
         while (lo < hi - 1) {
           const mid = (lo + hi) >> 1;
-          if (cum[mid]! <= length) lo = mid;
+          if (CUM[mid]! <= length) lo = mid;
           else hi = mid;
         }
-        const span = cum[hi]! - cum[lo]!;
-        const t = span === 0 ? 0 : (length - cum[lo]!) / span;
+        const span = CUM[hi]! - CUM[lo]!;
+        const t = span === 0 ? 0 : (length - CUM[lo]!) / span;
         const a = ROUTE[lo]!;
         const b = ROUTE[hi]!;
         return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
@@ -421,16 +427,15 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         const box = frameBox();
         if (box.w === 0) return null;
 
-        const { cum, total } = metrics(box);
-        const travelled = lengthAt(progress, cum);
-        const here = pointAtLength(travelled, cum);
+        const travelled = lengthAt(progress);
+        const here = pointAtLength(travelled);
 
         // Heading from a fixed distance along the line rather than a fixed
         // step in progress: near a tight bend the two are not the same, and a
         // progress step gives a bow that swings before the ship turns.
-        const step = Math.max(2, total * 0.004);
-        const ahead = pointAtLength(Math.min(total, travelled + step), cum);
-        const behind = pointAtLength(Math.max(0, travelled - step), cum);
+        const step = ROUTE_LENGTH * 0.004;
+        const ahead = pointAtLength(Math.min(ROUTE_LENGTH, travelled + step));
+        const behind = pointAtLength(Math.max(0, travelled - step));
 
         // The frame is wider than it is tall and the route's user space is
         // stretched to match, so the heading has to be worked out in pixels.
@@ -456,14 +461,16 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
           (here.y / 100) * box.h
         }px) translate(-50%, -50%) rotate(${heading}deg)${mirror} scale(${1 / z})`;
 
-        // `vector-effect: non-scaling-stroke` holds the stroke *width* steady
-        // under the map's zoom. It does not hold the dash pattern: those
-        // lengths scale with it, which is why a 4px dash reads as solid at 6x
-        // and why the pattern here is divided back down. The reveal is measured
-        // in the same pre-zoom space, so it carries no factor at all.
-        sailed.style.strokeDasharray = String(total);
-        sailed.style.strokeDashoffset = String(total - travelled);
-        unsailed.style.strokeDasharray = `${4 / z} ${6 / z}`;
+        // Widths and dashes are stated in user units and converted here, so a
+        // line keeps the same thickness on screen at every zoom without asking
+        // any vector-effect to arrange it. One user unit is this many device
+        // pixels:
+        const unit = (box.w / MAP_W) * z;
+        sailed.style.strokeWidth = String(1.4 / unit);
+        sailed.style.strokeDasharray = String(ROUTE_LENGTH);
+        sailed.style.strokeDashoffset = String(ROUTE_LENGTH - travelled);
+        unsailed.style.strokeWidth = String(1.5 / unit);
+        unsailed.style.strokeDasharray = `${4 / unit} ${6 / unit}`;
 
         // The rail's filled track is the same fact as the drawn-in route, so
         // it is driven from the same number rather than from the input's value.
