@@ -705,8 +705,12 @@ body::after {
 .cal-track {
   position: relative;
   height: 1.15rem;
-  border: 1px solid var(--rule);
   border-radius: 2px;
+
+  /* Outline, not border: a border would inset the box the blocks are placed
+     in and put them a pixel out of step with the leaders. */
+  outline: 1px solid var(--rule);
+  outline-offset: -1px;
   background: rgb(0 0 0 / 28%);
 }
 
@@ -715,10 +719,18 @@ body::after {
   position: absolute;
   top: 0;
   height: 100%;
-  border: 1px solid rgb(0 0 0 / 35%);
+  /* Adjacent stays have to read as two, not as one long bar: on the calendar
+     Circe's year and Calypso's seven years touch. */
+  border-inline: 1px solid rgb(0 0 0 / 70%);
   border-radius: 1px;
-  background: var(--clay);
-  opacity: 0.42;
+
+  /* Parchment, not clay. Clay is the colour of progress on this page --- the
+     sailed route, the filled track directly below this lane --- and a stated
+     duration is a different kind of fact from how far the visitor has got.
+     Two orange fills on adjacent rows meaning different things read as one
+     thing. */
+  background: var(--figure);
+  opacity: 0.36;
   transition: opacity 0.25s ease;
 }
 
@@ -728,7 +740,7 @@ body::after {
 }
 
 .cal-block.is-past {
-  opacity: 0.6;
+  opacity: 0.46;
 }
 
 /* A stop the poem gives no length to. Not a small block --- no width at all,
@@ -747,11 +759,20 @@ body::after {
   opacity: 1;
 }
 
+/* Inset explicitly, in both directions.
+
+   `width: 100%` plus a margin resolved against the un-inset parent and pushed
+   this 7px past the right edge, which put every leader increasingly out of
+   step with the tick it points at --- 14px adrift by Ithaca. Setting `left`
+   and `right` instead does not work either: an svg is a replaced element, so
+   with `width: auto` it falls back to its intrinsic size rather than filling
+   the inset box, and the whole lane collapsed to a stub. The width has to be
+   stated. */
 .leaders {
   position: absolute;
   top: 1.3rem;
-  left: 0;
-  width: 100%;
+  left: calc(var(--thumb) / 2);
+  width: calc(100% - var(--thumb));
   height: calc(3.4rem - 1.15rem);
 }
 
@@ -880,7 +901,6 @@ body::after {
    lines and the labels below are all inset by half a thumb so that a stop is
    in the same place in all four. */
 .cal-track,
-.leaders,
 .rail-ticks {
   margin-inline: calc(var(--thumb) / 2);
 }

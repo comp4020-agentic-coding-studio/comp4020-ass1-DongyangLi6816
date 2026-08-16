@@ -209,7 +209,8 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
             <span id="scale-label">Story order</span>
           </button>
           <span class="scale-note" id="scale-note">
-            Fourteen stops, evenly spaced, the way the voyage is retold.
+            Fourteen stops at equal width, the way the voyage is retold. Filled
+            where the poem states a length, a bare line where it states none.
           </span>
         </p>
 
@@ -833,11 +834,14 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         const showsCalendar = mixTarget > 0.5;
         scaleToggle.setAttribute("aria-pressed", String(showsCalendar));
         scaleLabel.textContent = showsCalendar ? "True calendar" : "Story order";
+        // The lane needs saying out loud in both modes. Nothing else on the
+        // page explains that a filled bar means the poem states a length, and
+        // a visitor has no reason to guess it.
         scaleNote.textContent = showsCalendar
-          ? `Every stay at the width the poem gives it. Ogygia is ${Math.round(
+          ? `Each stay as wide as the days the poem states — Ogygia is ${Math.round(
               (SPANS[11]!.end - SPANS[11]!.start) * 100,
-            )} per cent of it.`
-          : "Fourteen stops, evenly spaced, the way the voyage is retold.";
+            )} per cent of it, and eight stops have no width at all.`
+          : "Fourteen stops at equal width, the way the voyage is retold. Filled where the poem states a length, a bare line where it states none.";
 
         if (!animated || stillness.matches) {
           mix = mixTarget;
