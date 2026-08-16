@@ -1,8 +1,29 @@
 ---
-// Placeholder page. It exists so the carried-forward Astro build and the
-// starter invariants are green before the prototype starts — nothing here is
-// the assignment. Replace it wholesale.
+import coastline from "../components/coastline.svg?raw";
+import {
+  BENCHMARKS,
+  STOPS,
+  STOPS_WITHOUT_DURATION,
+  TOTAL_STATED_DAYS,
+  dayAt,
+  project,
+  projectMarker,
+} from "../data/voyage.ts";
 import "../styles/global.css";
+
+const base = import.meta.env.BASE_URL;
+const markers = STOPS.map((stop, i) => ({
+  ...stop,
+  index: i,
+  pos: project(stop),
+  marker: projectMarker(stop),
+  day: dayAt(i),
+}));
+
+// The route is drawn between marker centres in percentage space, so it lines
+// up with the buttons rather than with the coastline's own coordinates.
+const route = markers.map((m) => `${m.pos.x},${m.pos.y}`).join(" ");
+const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
 ---
 
 <!doctype html>
@@ -10,15 +31,210 @@ import "../styles/global.css";
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Assignment 1 — placeholder</title>
+    <meta
+      name="description"
+      content="Diomedes sailed home from Troy in four days. Odysseus took twenty years. An interactive map of where the other sixteen went."
+    />
+    <title>Ten Years Late — Odysseus's detour</title>
   </head>
   <body>
-    <nav aria-label="Primary">
-      <a href={import.meta.env.BASE_URL}>Home</a>
-    </nav>
+    <header class="topbar">
+      <nav aria-label="Primary">
+        <a class="wordmark" href={base}>Ten Years Late</a>
+      </nav>
+      <div class="counters">
+        <p class="counter is-ghost">
+          <span class="counter-k">{diomedes.who}, {diomedes.source}</span>
+          <span class="counter-v">Day {diomedes.day}</span>
+          <span class="counter-n">home</span>
+        </p>
+        <p class="counter is-actual">
+          <span class="counter-k">Odysseus</span>
+          <span class="counter-v" id="day-count">Day 0</span>
+          <span class="counter-n" id="day-note">still at Troy</span>
+        </p>
+      </div>
+    </header>
+
     <main>
-      <h1>Assignment 1</h1>
-      <p>Nothing built yet.</p>
+      <h1 class="visually-hidden">
+        Ten Years Late — an interactive map of Odysseus's detour
+      </h1>
+
+      <div class="stage">
+        <div class="map" id="map">
+          {/* Markers are positioned as a percentage of this box, so the box has
+              to hold the coastline's own aspect ratio exactly. Let the SVG
+              letterbox inside a differently-shaped parent and every marker
+              drifts off its coastline. */}
+          <div class="map-frame">
+            <Fragment set:html={coastline} />
+            <svg
+              class="route"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <polyline points={route} vector-effect="non-scaling-stroke" />
+            </svg>
+
+            <div class="markers" role="group" aria-label="Voyage stops">
+              {
+                markers.map((m) => (
+                  <button
+                    class="marker"
+                    type="button"
+                    data-index={m.index}
+                    aria-pressed="false"
+                    aria-label={`Stop ${m.index + 1}, ${m.name}`}
+                    style={`left:${m.marker.x}%;top:${m.marker.y}%`}
+                  >
+                    <span class="marker-dot">{m.index + 1}</span>
+                    <span class="marker-name">{m.name}</span>
+                  </button>
+                ))
+              }
+            </div>
+          </div>
+        </div>
+
+        <aside class="panel" id="scene" aria-live="polite">
+          <p class="panel-meta">
+            <span class="panel-num" id="scene-num">1</span>
+            <span class="panel-book" id="scene-book">Book 9</span>
+          </p>
+          <h2 class="panel-title" id="scene-title">Troy</h2>
+          <p class="panel-epithet" id="scene-epithet">
+            Twelve ships turn for home
+          </p>
+          <p class="panel-blurb" id="scene-blurb"></p>
+          <p class="panel-days" id="scene-days"></p>
+        </aside>
+      </div>
+
+      <div class="rail">
+        <label class="visually-hidden" for="timeline">
+          Voyage stop — drag or use the arrow keys
+        </label>
+        <input
+          type="range"
+          id="timeline"
+          min="0"
+          max={STOPS.length - 1}
+          step="1"
+          value="0"
+          aria-describedby="rail-hint"
+        />
+        <div class="rail-ticks" aria-hidden="true">
+          {
+            markers.map((m) => (
+              <span class="rail-tick" data-index={m.index}>
+                <span class="rail-label">{m.name}</span>
+              </span>
+            ))
+          }
+        </div>
+        <p class="rail-hint" id="rail-hint">
+          {`Drag the timeline, or press a stop on the map. ${TOTAL_STATED_DAYS.toLocaleString()} days are all the poem actually counts — ${STOPS_WITHOUT_DURATION} of these fourteen stops carry no stated duration at all.`}
+        </p>
+      </div>
     </main>
+
+    <script>
+      import { BENCHMARKS, STOPS, dayAt } from "../data/voyage.ts";
+
+      const timeline = document.querySelector<HTMLInputElement>("#timeline")!;
+      const markers = [
+        ...document.querySelectorAll<HTMLButtonElement>(".marker"),
+      ];
+      const ticks = [...document.querySelectorAll<HTMLElement>(".rail-tick")];
+
+      const el = (id: string) => document.getElementById(id)!;
+      const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
+
+      function describeLag(day: number): string {
+        const behind = day - diomedes.day;
+        if (behind <= 0) return "still on schedule";
+        if (behind < 90) return `${behind} days behind Diomedes`;
+        const plural = (n: number, unit: string) =>
+          `${n} ${unit}${n === 1 ? "" : "s"}`;
+        const years = Math.floor(behind / 365);
+        const months = Math.round((behind % 365) / 30);
+        if (years < 1) return `${plural(months, "month")} behind Diomedes`;
+        const y = plural(years, "year");
+        return months
+          ? `${y} ${plural(months, "month")} behind Diomedes`
+          : `${y} behind Diomedes`;
+      }
+
+      let current = -1;
+
+      function show(index: number) {
+        if (index === current) return;
+        current = index;
+        const stop = STOPS[index]!;
+        const day = dayAt(index);
+
+        el("scene-num").textContent = String(index + 1);
+        el("scene-book").textContent = stop.book;
+        el("scene-title").textContent = stop.name;
+        el("scene-epithet").textContent = stop.epithet;
+        el("scene-blurb").textContent = stop.blurb;
+
+        el("scene-days").textContent =
+          stop.days === null
+            ? "The poem gives no duration for this stop."
+            : stop.days === 0
+              ? ""
+              : `${stop.days.toLocaleString()} days — ${stop.daysNote}.`;
+        el("scene-days").classList.toggle("is-gap", stop.days === null);
+
+        el("day-count").textContent = `Day ${day.toLocaleString()}`;
+        el("day-note").textContent = index === 0 ? "still at Troy" : describeLag(day);
+
+        markers.forEach((m, i) => {
+          m.setAttribute("aria-pressed", String(i === index));
+          m.classList.toggle("is-active", i === index);
+          m.classList.toggle("is-past", i < index);
+        });
+        ticks.forEach((t, i) => {
+          t.classList.toggle("is-active", i === index);
+          t.classList.toggle("is-past", i < index);
+        });
+
+        if (timeline.valueAsNumber !== index) timeline.value = String(index);
+        timeline.setAttribute(
+          "aria-valuetext",
+          `Stop ${index + 1} of ${STOPS.length}, ${stop.name}. Day ${day.toLocaleString()}. ${describeLag(day)}.`,
+        );
+      }
+
+      timeline.addEventListener("input", () => show(timeline.valueAsNumber));
+      markers.forEach((m, i) => m.addEventListener("click", () => show(i)));
+      ticks.forEach((t, i) => t.addEventListener("click", () => show(i)));
+
+      // The map itself answers to the keyboard, so a visitor who tabs to a
+      // marker can walk the whole voyage without going back to the slider.
+      document.querySelector("#map")!.addEventListener("keydown", (event) => {
+        const e = event as KeyboardEvent;
+        const moves: Record<string, number> = {
+          ArrowRight: current + 1,
+          ArrowDown: current + 1,
+          ArrowLeft: current - 1,
+          ArrowUp: current - 1,
+          Home: 0,
+          End: STOPS.length - 1,
+        };
+        const next = moves[e.key];
+        if (next === undefined) return;
+        e.preventDefault();
+        const clamped = Math.max(0, Math.min(STOPS.length - 1, next));
+        show(clamped);
+        markers[clamped]!.focus();
+      });
+
+      show(0);
+    </script>
   </body>
 </html>

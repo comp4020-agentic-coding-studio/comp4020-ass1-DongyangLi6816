@@ -1,14 +1,452 @@
-/* Placeholder styles, replaced when the prototype starts. */
+/* Palette from Attic pottery: black slip ground, fired clay figures, ochre.
+   The sea is the slip; the land sits a shade above it; the ghost benchmark is
+   the only cool hue on the page, so an absence reads as one. */
+:root {
+  --slip: #14100c;
+  --sea: #171c22;
+  --land: #241d16;
+  --land-edge: #3a2e22;
+  --panel: #1c1610;
+  --rule: #3a2e22;
+  --figure: #f0e2c6;
+  --figure-dim: #a8977e;
+  --clay: #c1632c;
+  --clay-bright: #e07c3d;
+  --gold: #d1a13a;
+  --ghost: #7f97a1;
+  --topbar-h: 4rem;
+  --rail-h: 6.5rem;
+  --panel-w: 23rem;
+}
 
-*,
-*::before,
-*::after {
+* {
   box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
 }
 
 body {
   margin: 0;
-  padding: 2rem;
-  font-family: system-ui, sans-serif;
+  background: var(--slip);
+  color: var(--figure);
+  font:
+    400 16px/1.6 Georgia,
+    "Iowan Old Style",
+    serif;
+  overflow: hidden;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+/* ---------- top bar ---------- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  height: var(--topbar-h);
+  padding: 0 clamp(0.9rem, 3vw, 2rem);
+  border-bottom: 1px solid var(--rule);
+  background: var(--slip);
+}
+
+.wordmark {
+  font-family: Palatino, "Palatino Linotype", Georgia, serif;
+  font-size: clamp(1.05rem, 2.4vw, 1.4rem);
+  letter-spacing: 0.01em;
+  color: var(--figure);
+  text-decoration: none;
+}
+
+.counters {
+  display: flex;
+  gap: clamp(0.9rem, 3vw, 2.5rem);
+}
+
+.counter {
+  display: grid;
+  gap: 0.05rem;
+  margin: 0;
+  text-align: right;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.counter-k {
+  font-size: 0.6rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--figure-dim);
+}
+
+.counter-v {
+  font-size: clamp(1rem, 2.6vw, 1.35rem);
+  line-height: 1.1;
+}
+
+.counter-n {
+  font-size: 0.66rem;
+  color: var(--figure-dim);
+}
+
+.counter.is-ghost .counter-v {
+  color: var(--ghost);
+}
+
+.counter.is-actual .counter-v {
+  color: var(--clay-bright);
+}
+
+/* ---------- stage ---------- */
+
+/* Map and panel sit side by side rather than the panel floating over the map:
+   an overlay hides whichever stops fall under it, and Troy is one of them. */
+.stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--panel-w);
+  height: calc(100dvh - var(--topbar-h) - var(--rail-h));
+  min-height: 16rem;
+}
+
+.map {
+  display: grid;
+  place-items: center;
+  background: var(--sea);
+  overflow: hidden;
+  container-type: size;
+}
+
+.map:focus-visible {
+  outline-offset: -3px;
+}
+
+/* Holds the coastline's aspect ratio so percentage-positioned markers land on
+   the right coastline whatever shape the viewport is.
+   `width: 100%` plus `max-height` cannot do this: with a definite width the
+   height clamp breaks the ratio instead of shrinking the box, which crops
+   whichever stop sits nearest the edge. Sizing against the container's own
+   dimensions picks the smaller fit outright. */
+.map-frame {
+  position: relative;
+  width: min(100cqw, 100cqh * 1600 / 954);
+  aspect-ratio: 1600 / 954;
+}
+
+.coastline {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.coastline path {
+  fill: var(--land);
+  stroke: var(--land-edge);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.route {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.route polyline {
+  fill: none;
+  stroke: var(--clay);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 5;
+  opacity: 0.5;
+}
+
+/* ---------- markers ---------- */
+
+.markers {
+  position: absolute;
+  inset: 0;
+}
+
+.marker {
+  position: absolute;
+  translate: -50% -50%;
+  display: grid;
+  justify-items: center;
+  gap: 0.25rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    scale 0.25s ease,
+    filter 0.25s ease;
+}
+
+.marker:hover,
+.marker:focus-visible {
+  scale: 1.12;
+  z-index: 3;
+}
+
+.marker-dot {
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+  background: var(--slip);
+  color: var(--figure-dim);
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.75rem;
+  transition:
+    background 0.25s ease,
+    border-color 0.25s ease,
+    color 0.25s ease;
+}
+
+.marker-name {
+  max-width: 8rem;
+  font-size: 0.68rem;
+  line-height: 1.25;
+  color: transparent;
+  text-align: center;
+  transition: color 0.25s ease;
+}
+
+.marker.is-past .marker-dot {
+  border-color: var(--clay);
+  color: var(--clay);
+}
+
+.marker.is-active {
+  z-index: 4;
+}
+
+.marker.is-active .marker-dot {
+  border-color: var(--gold);
+  background: var(--clay);
+  color: var(--slip);
+  box-shadow: 0 0 0 5px rgb(193 99 44 / 18%);
+}
+
+.marker.is-active .marker-name,
+.marker:hover .marker-name,
+.marker:focus-visible .marker-name {
+  color: var(--figure);
+}
+
+/* ---------- panel ---------- */
+
+.panel {
+  overflow-y: auto;
+  padding: clamp(1.1rem, 2.5vw, 1.9rem);
+  border-left: 1px solid var(--rule);
+  background: var(--panel);
+}
+
+.panel-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin: 0 0 0.9rem;
+}
+
+.panel-num {
+  display: grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border: 1px solid var(--gold);
+  border-radius: 50%;
+  color: var(--gold);
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.8rem;
+}
+
+.panel-book {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--figure-dim);
+}
+
+.panel-title {
+  margin: 0;
+  font-family: Palatino, "Palatino Linotype", Georgia, serif;
+  font-size: clamp(1.5rem, 3.6vw, 2rem);
+  font-weight: 400;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+.panel-epithet {
+  margin: 0.3rem 0 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--rule);
+  color: var(--clay-bright);
+  font-style: italic;
+}
+
+.panel-blurb {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.panel-days {
+  margin: 1rem 0 0;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.72rem;
   line-height: 1.5;
+  color: var(--gold);
+}
+
+.panel-days:empty {
+  display: none;
+}
+
+.panel-days.is-gap {
+  color: var(--figure-dim);
+  font-style: italic;
+}
+
+/* ---------- rail ---------- */
+
+.rail {
+  position: relative;
+  height: var(--rail-h);
+  padding: 0.85rem clamp(0.9rem, 3vw, 2rem) 0.5rem;
+  border-top: 1px solid var(--rule);
+  background: var(--slip);
+}
+
+#timeline {
+  display: block;
+  width: 100%;
+  margin: 0;
+  accent-color: var(--clay);
+  cursor: pointer;
+}
+
+.rail-ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.3rem;
+}
+
+.rail-tick {
+  flex: 1;
+  text-align: center;
+  cursor: pointer;
+}
+
+.rail-label {
+  display: block;
+  overflow: hidden;
+  font-size: 0.58rem;
+  line-height: 1.2;
+  color: var(--figure-dim);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.2s ease;
+}
+
+.rail-tick.is-past .rail-label {
+  color: var(--clay);
+}
+
+.rail-tick.is-active .rail-label {
+  color: var(--figure);
+}
+
+.rail-hint {
+  margin: 0.45rem 0 0;
+  font-size: 0.68rem;
+  color: var(--figure-dim);
+}
+
+/* ---------- phone ---------- */
+
+@media (width <= 52rem) {
+  :root {
+    --rail-h: 5rem;
+  }
+
+  body {
+    overflow-y: auto;
+  }
+
+  .topbar {
+    height: auto;
+    padding-block: 0.6rem;
+  }
+
+  .stage {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    height: auto;
+  }
+
+  /* `container-type: size` needs a definite height on both axes. Leave the map
+     row on `auto` here and 100cqh resolves to zero, the frame gets no width,
+     and the map vanishes on phones while looking perfect on desktop. */
+  .map {
+    height: 42dvh;
+    min-height: 15rem;
+  }
+
+  .panel {
+    border-top: 1px solid var(--rule);
+    border-left: 0;
+  }
+
+  .marker-name {
+    display: none;
+  }
+
+  .rail {
+    position: sticky;
+    bottom: 0;
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+  }
+
+  .rail-label {
+    display: none;
+  }
+
+  .rail-hint {
+    margin-top: 0.7rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marker,
+  .marker-dot,
+  .marker-name,
+  .rail-label {
+    transition: none;
+  }
 }

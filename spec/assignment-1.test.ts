@@ -20,8 +20,8 @@ import { describe, expect, it } from "vitest";
 //
 // Both start empty, so this file is red until the mechanic exists. That is the
 // point: red-to-green across the week is the work.
-const CONTROL: string = "";
-const DISPLAY: string = "";
+const CONTROL: string = "#timeline";
+const DISPLAY: string = "#scene";
 
 // The deployed site lives under the repo path, not the domain root. Any
 // root-absolute URL that doesn't start with this 404s live while looking
