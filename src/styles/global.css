@@ -258,6 +258,8 @@ body::after {
   color: var(--figure-dim);
 }
 
+/* The only cool hue on a page of fired clay, so the voyage that did not happen
+   reads as a different kind of thing from the one that did. */
 .counter.is-ghost .counter-v {
   color: var(--ghost);
 }
@@ -275,6 +277,11 @@ body::after {
   grid-template-columns: minmax(0, 1fr) var(--panel-w);
   height: calc(100dvh - var(--topbar-h) - var(--rail-h));
   min-height: 16rem;
+
+  /* The prologue holds `--rail-h` near zero and gives the map the difference.
+     Animated so the rail taking its height back reads as the rail arriving,
+     rather than as the map being cropped. */
+  transition: height 520ms cubic-bezier(0.33, 1, 0.68, 1);
 }
 
 .map {
@@ -658,6 +665,182 @@ body::after {
   color: var(--figure);
 }
 
+/* ---------- the prologue ----------
+
+   Everything here keys off `data-stage` on the root element, which the head
+   script sets before the first paint. Nothing is added or removed from the
+   document --- the whole voyage is in the markup from the start and the
+   prologue simply declines to show it --- so arriving at the voyage reflows
+   nothing and the markers are already where they belong.
+
+   `html:not([data-stage="voyage"])` reads as "before the voyage arrives", and
+   covers the three stages that come first without naming each one. */
+
+html:not([data-stage="voyage"]) .route:not(.route-nostos),
+html:not([data-stage="voyage"]) .ship:not(.ship-nostos),
+html:not([data-stage="voyage"]) .map-hint,
+html:not([data-stage="voyage"]) .panel-scene {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* `visibility`, not opacity, because these are buttons. A control faded to
+   nothing is still on the tab order: a marker tabbing through the prologue
+   would land on three invisible ones and have no idea where the focus ring
+   had gone. Anything hidden here that can take focus has to be hidden this
+   way --- see the markers below, which are the same problem. */
+html:not([data-stage="voyage"]) .map-controls {
+  visibility: hidden;
+}
+
+[data-stage="voyage"] .panel-prologue {
+  display: none;
+}
+
+/* Twelve of the fourteen stops are not drawn yet. `visibility` rather than
+   opacity alone, because a marker faded to nothing is still a button the tab
+   order walks into. */
+html:not([data-stage="voyage"]) .marker {
+  visibility: hidden;
+  opacity: 0;
+}
+
+html:not([data-stage="voyage"]) .marker.is-start,
+html:not([data-stage="voyage"]) .marker.is-end {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* No numerals yet. "1" and "14" beside each other announce twelve stops the
+   prologue has deliberately not shown, and invite the visitor to wonder where
+   they went instead of watching the crossing.
+   Written through `.marker` so it outranks the past-and-active states it has
+   to beat, rather than relying on sitting later in the file than they do. */
+html:not([data-stage="voyage"]) .marker .marker-dot {
+  color: transparent;
+}
+
+[data-stage="prologue"] .marker.is-start .marker-name {
+  display: none;
+}
+
+/* The destination carries its name from the start. It is the half of the
+   sentence the crossing is going to finish. */
+html:not([data-stage="voyage"]) .marker.is-end .marker-name {
+  color: var(--figure-dim);
+}
+
+/* Troy says what pressing it does, and the name it would otherwise show would
+   be a second label saying something else. */
+.marker-cta {
+  display: none;
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--clay-bright);
+  white-space: nowrap;
+  text-shadow:
+    0 0 4px var(--slip),
+    0 0 8px var(--slip);
+}
+
+[data-stage="prologue"] .marker-cta {
+  display: block;
+}
+
+/* One slow breath, not a blink: the only thing on the page asking to be
+   pressed, saying so without behaving like a notification. */
+[data-stage="prologue"] .marker.is-start .marker-dot {
+  animation: beckon 2.8s ease-in-out infinite;
+}
+
+@keyframes beckon {
+  0% {
+    box-shadow: 0 0 0 0 rgb(224 124 61 / 50%);
+  }
+
+  70%,
+  100% {
+    box-shadow: 0 0 0 12px rgb(224 124 61 / 0%);
+  }
+}
+
+/* The rail's whole height is dead space until there is a voyage to scrub, so
+   the prologue gets it and the map is as big as the page can make it. The
+   stage animates between the two heights and a ResizeObserver redraws both
+   ships as it goes --- a CSS height change fires no resize event, so without
+   that observer the hulls would sit where the map used to be. */
+html:not([data-stage="voyage"]) {
+  --rail-h: 1.6rem;
+}
+
+.rail > * {
+  transition:
+    opacity 420ms ease,
+    translate 420ms cubic-bezier(0.33, 1, 0.68, 1),
+    visibility 420ms;
+}
+
+/* `visibility` again, for the same reason as the map controls: the rail holds
+   a toggle and a link, and both stay on the tab order through a fade. It is
+   in the transition list so it flips at the right end of the rise --- visible
+   as it starts arriving, hidden only once it has gone. */
+html:not([data-stage="voyage"]) .rail > * {
+  visibility: hidden;
+  opacity: 0;
+  translate: 0 1.4rem;
+  pointer-events: none;
+}
+
+/* Two readings of one counter. Only one is ever in the document's flow. */
+[data-stage="arrived"] .at-sea,
+[data-stage="voyage"] .at-sea,
+[data-stage="prologue"] .at-home,
+[data-stage="sailing"] .at-home {
+  display: none;
+}
+
+.counter.is-actual {
+  transition: opacity 500ms ease;
+}
+
+/* Odysseus has not left yet, and a counter reading zero beside one that is
+   climbing invites the wrong comparison. It arrives when he does. */
+html:not([data-stage="voyage"]) .counter.is-actual {
+  opacity: 0;
+}
+
+.skip {
+  position: absolute;
+  z-index: 5;
+  right: 0.7rem;
+  bottom: 0.6rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: rgb(20 16 12 / 82%);
+  color: var(--figure-dim);
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.skip:hover {
+  border-color: var(--clay);
+  color: var(--figure);
+}
+
+[data-stage="arrived"] .skip,
+[data-stage="voyage"] .skip {
+  display: none;
+}
+
 /* ---------- panel ---------- */
 
 .panel.is-entering {
@@ -1033,6 +1216,38 @@ body::after {
 }
 
 
+/* ---------- the nostos ----------
+
+   Last in the file because these out-specify rules above them --- the shared
+   `.ship path` and `.route polyline` --- and the cascade, not a higher score,
+   is what should decide between two statements about the same mark. */
+
+/* Cool against the whole page's fired clay, so the voyage that did not happen
+   never reads as part of the one that did. */
+.route-nostos polyline {
+  stroke: var(--ghost);
+  opacity: 0.5;
+}
+
+/* Solid while it is sailing, a shade once it moors --- which is the only
+   moment it ever changes, and the moment the page turns. */
+.ship-nostos path {
+  fill: var(--figure);
+  transition: fill 700ms ease;
+}
+
+[data-stage="arrived"] .ship-nostos path,
+[data-stage="voyage"] .ship-nostos path {
+  fill: var(--ghost);
+}
+
+/* The gloss, not a subtitle: it defines the word the page is named for, so it
+   is set in the cool hue the nostos owns everywhere else. */
+.panel-prologue .panel-epithet {
+  color: var(--ghost);
+  font-size: 1.05rem;
+}
+
 /* ---------- phone ---------- */
 
 @media (width <= 52rem) {
@@ -1056,7 +1271,7 @@ body::after {
   }
 
   /* Side by side, 390px is not enough for the title and both counters: the
-     title broke in half and "8 years 4 months behind Diomedes" broke twice.
+     title broke in half and "8 years 4 months later" broke twice.
      Two rows, and each gets the full width. */
   .topbar {
     flex-direction: column;
@@ -1067,8 +1282,8 @@ body::after {
   }
 
   /* Both notes sit on one baseline now, so they need more air between them
-     than the desktop gap gives: "home" and "8 years 4 months behind Diomedes"
-     ran together into one string. */
+     than the desktop gap gives: "home" and "8 years 4 months later" ran
+     together into one string. */
   .counters {
     justify-content: flex-end;
     gap: 1.5rem;
@@ -1138,6 +1353,21 @@ body::after {
     height: 0.55rem;
   }
 
+  /* Two markers on screen instead of fourteen, so the lettering that would
+     crowd the voyage costs nothing here --- and "Sail for Ithaca" is pointing
+     at a dot that has to be able to say it is Ithaca. */
+  html:not([data-stage="voyage"]) .marker.is-end .marker-name {
+    display: block;
+  }
+
+  /* The rail is `height: auto` on a phone, so hiding its contents still
+     leaves a band of empty page and still pushes the panel under the sticky
+     bar. There is nothing to scrub until there is a voyage: it arrives with
+     one. `--rail-space` follows, because the observer measures a box that is
+     now zero. */
+  html:not([data-stage="voyage"]) .rail {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1153,7 +1383,17 @@ body::after {
      these are the parts CSS owns. Every end state is identical either way. */
   .panel.is-entering,
   .marker.is-active .marker-dot::after,
-  .sound[aria-pressed="true"] .sound-glyph {
+  .sound[aria-pressed="true"] .sound-glyph,
+  [data-stage="prologue"] .marker.is-start .marker-dot {
     animation: none;
+  }
+
+  /* The head script has already put this visitor past the prologue, so these
+     never run. Stated anyway: the stage is one attribute and anything that
+     sets it back would otherwise start a page full of movement. */
+  .rail > *,
+  .counter.is-actual,
+  .ship-nostos path {
+    transition: none;
   }
 }

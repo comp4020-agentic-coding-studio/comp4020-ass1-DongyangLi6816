@@ -5,9 +5,10 @@ import rawCoastline from "../components/coastline.svg?raw";
 import { roughen } from "../data/coastline.ts";
 import track from "../audio/temple-of-the-manes.m4a";
 import {
-  BENCHMARKS,
+  NOSTOS_DAYS,
   STOPS,
   dayAt,
+  nostosRoutePoints,
   projectMarker,
   routePoints,
 } from "../data/voyage.ts";
@@ -37,26 +38,54 @@ const markers = STOPS.map((stop, i) => ({
 // that both engines treat the same way.
 const MAP_W = 1600;
 const MAP_H = 953.8;
-const route = routePoints()
-  .points.map(
-    (p) =>
-      `${((p.x / 100) * MAP_W).toFixed(1)},${((p.y / 100) * MAP_H).toFixed(1)}`,
-  )
-  .join(" ");
+const inMapUnits = (points: { x: number; y: number }[]) =>
+  points
+    .map(
+      (p) =>
+        `${((p.x / 100) * MAP_W).toFixed(1)},${((p.y / 100) * MAP_H).toFixed(1)}`,
+    )
+    .join(" ");
+const route = inMapUnits(routePoints().points);
+// The voyage that should have happened, drawn in the same space by the same
+// sampler. It shares this line with the real course as far as Cape Malea.
+const nostosRoute = inMapUnits(nostosRoutePoints());
 // Roughened here, at build time. It used to be an SVG filter in the browser,
 // which WebKit dropped on every large landmass --- see src/data/coastline.ts.
 const coastline = roughen(rawCoastline);
-const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
 ---
 
 <!doctype html>
-<html lang="en">
+{/* The stage lives on the root element rather than on `main` so the script
+    below can set it before the first paint. Everything the prologue hides is
+    hidden by CSS keyed off this attribute --- no element is added or removed,
+    so nothing reflows when the voyage arrives. */}
+<html lang="en" data-stage="prologue">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    {/* Inline and blocking, before anything is drawn.
+        The prologue is a five-second animation, and there are two visitors it
+        must not run for: one who has asked the system for less motion, and one
+        who has already watched it this session. Deciding that in the module
+        script below would be a decision taken after the first frame --- the
+        prologue would flash up and vanish, which is worse than either state. */}
+    <script is:inline>
+      try {
+        if (
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+          sessionStorage.getItem("nostos") === "seen"
+        ) {
+          document.documentElement.dataset.stage = "voyage";
+        }
+      } catch {
+        // Storage can throw outright in a locked-down browser. The prologue is
+        // the default and costs nothing to leave standing.
+      }
+    </script>
     <meta
       name="description"
-      content="Diomedes sailed home from Troy in four days. Odysseus took twenty years. An interactive map of where the other sixteen went."
+      content="Troy to Ithaca is a week under sail. Odysseus took twenty years. An interactive map of the detour, drawn to the poem's own arithmetic."
     />
     <title>Ten Years Late — Odysseus's detour</title>
   </head>
@@ -80,11 +109,27 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
       </button>
       <audio id="track" src={track} loop preload="none"></audio>
 
+      {/* The benchmark and the voyage, side by side. The comparison is the
+          adjacency --- neither line has to name the other for the gap between
+          two numbers in the same column to read. */}
       <div class="counters">
+        {/* Two readings of the same counter, both in the markup, swapped by
+            the stage. The script writes only the first. Deciding between them
+            in script instead would mean the arrived value flashing up for a
+            frame on the paths that skip the crossing --- exactly the visitors
+            who asked not to be flashed at. */}
         <p class="counter is-ghost">
-          <span class="counter-k">{diomedes.who}, {diomedes.source}</span>
-          <span class="counter-v">Day {diomedes.day}</span>
-          <span class="counter-n">home</span>
+          <span class="counter-k">Nostos</span>
+          <span class="counter-v">
+            <span class="at-sea" id="nostos-day">Day 0</span><span class="at-home"
+              >Day {NOSTOS_DAYS}</span
+            >
+          </span>
+          <span class="counter-n">
+            <span class="at-sea" id="nostos-note">at Troy</span><span
+              class="at-home">home</span
+            >
+          </span>
         </p>
         <p class="counter is-actual">
           <span class="counter-k">Odysseus</span>
@@ -125,6 +170,19 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
               <polyline id="route-sailed" points={route} />
             </svg>
 
+            {/* The nostos, on its own layer so it can be drawn in and left
+                standing while the voyage below it is redrawn from scratch.
+                Under the real route in the stack: the voyage is the subject,
+                and this is the measure held up against it. */}
+            <svg
+              class="route route-nostos"
+              viewBox={`0 0 ${MAP_W} ${MAP_H}`}
+              aria-hidden="true"
+              focusable="false"
+            >
+              <polyline id="nostos-line" points={nostosRoute} />
+            </svg>
+
             {/* The ship rides the route by transform, in pixels, so moving it
                 never touches layout. Decorative: the panel and the counters
                 carry the same information as text. */}
@@ -140,11 +198,33 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
               ></path>
             </svg>
 
+            {/* The same hull, sailing the crossing that should have happened.
+                It is solid while it is under way and drains to a shade once it
+                moors, which is the only time it ever moves. */}
+            <svg
+              class="ship ship-nostos"
+              id="nostos-ship"
+              viewBox="0 0 40 26"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path
+                d="M2 15 L38 15 L33 22 L7 22 Z M19 15 L19 3 L20 3 L20 15 Z M20 4 L31 8 L20 12 Z"
+              ></path>
+            </svg>
+
             <div class="markers" role="group" aria-label="Voyage stops">
               {
                 markers.map((m) => (
                   <button
-                    class="marker"
+                    class:list={[
+                      "marker",
+                      // The two ends of the voyage are the only stops the
+                      // prologue shows, so they are the only ones that need
+                      // naming in the markup.
+                      { "is-start": m.index === 0 },
+                      { "is-end": m.index === markers.length - 1 },
+                    ]}
                     type="button"
                     data-index={m.index}
                     aria-pressed="false"
@@ -153,6 +233,11 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
                   >
                     <span class="marker-dot">{m.index + 1}</span>
                     <span class="marker-name">{m.name}</span>
+                    {/* Troy is the only control the prologue offers, so it
+                        says what pressing it does rather than what it is. */}
+                    {m.index === 0 && (
+                      <span class="marker-cta">Sail for Ithaca</span>
+                    )}
                   </button>
                 ))
               }
@@ -170,19 +255,41 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
           <p class="map-hint" id="map-hint">
             Scroll to zoom, drag to pan. Plus and minus zoom, Escape fits.
           </p>
+
+          {/* A way past the prologue for anyone who does not want to watch it.
+              It names where it goes rather than what it refuses. */}
+          <button type="button" class="skip" id="skip">Go to the voyage</button>
         </div>
 
         <aside class="panel" id="scene" aria-live="polite">
-          <p class="panel-meta">
-            <span class="panel-num" id="scene-num">1</span>
-            <span class="panel-book" id="scene-book">Book 9</span>
-          </p>
-          <h2 class="panel-title" id="scene-title">Troy</h2>
-          <p class="panel-epithet" id="scene-epithet">
-            Twelve ships turn for home
-          </p>
-          <p class="panel-blurb" id="scene-blurb"></p>
-          <p class="panel-days" id="scene-days"></p>
+          {/* What the page is measuring, before it measures anything. It is in
+              the markup at load rather than announced, so the live region has
+              nothing to read out until the voyage actually arrives. */}
+          <div class="panel-prologue">
+            <p class="panel-meta">
+              <span class="panel-book">The Odyssey</span>
+            </p>
+            <h2 class="panel-title">Nostos</h2>
+            <p class="panel-epithet">νόστος — the return home by sea</p>
+            <p class="panel-blurb">
+              Troy to Ithaca is about five hundred miles of open water, and
+              ancient fleets were measured crossing that much in a week. Every
+              Greek captain left the same harbour on the same day.
+            </p>
+          </div>
+
+          <div class="panel-scene">
+            <p class="panel-meta">
+              <span class="panel-num" id="scene-num">1</span>
+              <span class="panel-book" id="scene-book">Book 9</span>
+            </p>
+            <h2 class="panel-title" id="scene-title">Troy</h2>
+            <p class="panel-epithet" id="scene-epithet">
+              Twelve ships turn for home
+            </p>
+            <p class="panel-blurb" id="scene-blurb"></p>
+            <p class="panel-days" id="scene-days"></p>
+          </div>
         </aside>
       </div>
 
@@ -252,10 +359,11 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
 
     <script>
       import {
-        BENCHMARKS,
+        NOSTOS_DAYS,
         STOPS,
         calendarSpan,
         dayAt,
+        nostosRoutePoints,
         routePoints,
         storyPosition,
         voyageDayAt,
@@ -277,6 +385,9 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
       ].find((line) => line.id !== "route-sailed")!;
       const panel = document.querySelector<HTMLElement>("#scene")!;
       const map = document.querySelector<HTMLElement>("#map")!;
+      const nostosShip = document.querySelector<SVGSVGElement>("#nostos-ship")!;
+      const nostosLine =
+        document.querySelector<SVGPolylineElement>("#nostos-line")!;
       const clay = document.querySelector<SVGPatternElement>("#clay-ground")!;
 
       // Names arrive as the map is zoomed into them. Eleven of the fifteen sit
@@ -300,7 +411,6 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
        * see voyageDayAt.
        */
       const DAYS = STOPS.map((_, i) => voyageDayAt(i));
-      const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
 
       const stillness = window.matchMedia("(prefers-reduced-motion: reduce)");
 
@@ -320,19 +430,64 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
       const MAP_H = 953.8;
       const { points: ROUTE, stopAt: STOP_AT } = routePoints();
 
-      const CUM = ROUTE.reduce<number[]>((acc, point, i) => {
-        if (i === 0) return [0];
-        const previous = ROUTE[i - 1]!;
-        return [
-          ...acc,
-          acc[i - 1]! +
-            Math.hypot(
-              ((point.x - previous.x) / 100) * MAP_W,
-              ((point.y - previous.y) / 100) * MAP_H,
-            ),
-        ];
-      }, []);
-      const ROUTE_LENGTH = CUM[CUM.length - 1]!;
+      interface Point {
+        x: number;
+        y: number;
+      }
+
+      /**
+       * A sampled course, measured so it can be walked by distance.
+       *
+       * Both courses on the map go through this: the voyage and the nostos.
+       * Walking by length rather than by sample index is what keeps a ship at
+       * a steady speed --- the curve is sampled evenly in its parameter, not
+       * in distance, so a long leg and a short one carry the same number of
+       * samples and stepping by index would sprint the long ones.
+       */
+      interface Course {
+        points: Point[];
+        cum: number[];
+        length: number;
+        /** The point at a given distance along the course. */
+        at: (length: number) => Point;
+      }
+
+      function measure(points: Point[]): Course {
+        const cum = points.reduce<number[]>((acc, point, i) => {
+          if (i === 0) return [0];
+          const previous = points[i - 1]!;
+          return [
+            ...acc,
+            acc[i - 1]! +
+              Math.hypot(
+                ((point.x - previous.x) / 100) * MAP_W,
+                ((point.y - previous.y) / 100) * MAP_H,
+              ),
+          ];
+        }, []);
+
+        const at = (length: number): Point => {
+          let lo = 0;
+          let hi = cum.length - 1;
+          while (lo < hi - 1) {
+            const mid = (lo + hi) >> 1;
+            if (cum[mid]! <= length) lo = mid;
+            else hi = mid;
+          }
+          const span = cum[hi]! - cum[lo]!;
+          const t = span === 0 ? 0 : (length - cum[lo]!) / span;
+          const a = points[lo]!;
+          const b = points[hi]!;
+          return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+        };
+
+        return { points, cum, length: cum[cum.length - 1]!, at };
+      }
+
+      const VOYAGE = measure(ROUTE);
+      const NOSTOS = measure(nostosRoutePoints());
+      const CUM = VOYAGE.cum;
+      const ROUTE_LENGTH = VOYAGE.length;
 
       /**
        * Zoom and pan.
@@ -355,6 +510,9 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
       let z = 1;
       let tx = 0;
       let ty = 0;
+
+      /** How much of the nostos has been sailed, 0 to 1. It only ever rises. */
+      let nostosProgress = 0;
 
       // The first paint is the whole map on purpose. The page's argument is a
       // shape --- the lettered east against the empty west where every stop
@@ -405,6 +563,7 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
           name.el.classList.toggle("is-held", z < name.from - 0.001);
         }
         drawShip(progress);
+        drawNostos(nostosProgress);
       }
 
       /** Put a point of the frame, in percent, at the centre of the window. */
@@ -441,11 +600,6 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
       /**
        * How far along the drawn line the ship is, for a fractional position in
        * the stop list.
-       *
-       * Interpolating by *length* rather than by sample index is what keeps the
-       * ship at a steady speed: the curve is sampled evenly in its parameter,
-       * not in distance, so a long leg and a short one carry the same number of
-       * samples and stepping by index would sprint the long ones.
        */
       function lengthAt(progress: number): number {
         const i = Math.max(0, Math.min(STOPS.length - 2, Math.floor(progress)));
@@ -455,38 +609,27 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         return from + (to - from) * t;
       }
 
-      /** The point at a given distance along the sampled curve. */
-      function pointAtLength(length: number): { x: number; y: number } {
-        let lo = 0;
-        let hi = CUM.length - 1;
-        while (lo < hi - 1) {
-          const mid = (lo + hi) >> 1;
-          if (CUM[mid]! <= length) lo = mid;
-          else hi = mid;
-        }
-        const span = CUM[hi]! - CUM[lo]!;
-        const t = span === 0 ? 0 : (length - CUM[lo]!) / span;
-        const a = ROUTE[lo]!;
-        const b = ROUTE[hi]!;
-        return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
-      }
-
-      function drawShip(progress: number): { x: number; y: number } | null {
-        // Layout size, not the bounding rect: the ship is a child of the frame
-        // and already inherits its zoom, so measuring the *scaled* box would
-        // apply the scale twice and fling the ship off the map.
-        const box = frameBox();
-        if (box.w === 0) return null;
-
-        const travelled = lengthAt(progress);
-        const here = pointAtLength(travelled);
+      /**
+       * Put a hull at a distance along a course, pointing the way it is going.
+       *
+       * Shared by the voyage and the nostos, because a ship that reads as a
+       * ship on one line and as a capsized wreck on the other would give the
+       * comparison away as two pieces of code rather than one picture.
+       */
+      function placeShip(
+        el: SVGSVGElement,
+        course: Course,
+        travelled: number,
+        box: { w: number; h: number },
+      ): Point {
+        const here = course.at(travelled);
 
         // Heading from a fixed distance along the line rather than a fixed
         // step in progress: near a tight bend the two are not the same, and a
         // progress step gives a bow that swings before the ship turns.
-        const step = ROUTE_LENGTH * 0.004;
-        const ahead = pointAtLength(Math.min(ROUTE_LENGTH, travelled + step));
-        const behind = pointAtLength(Math.max(0, travelled - step));
+        const step = course.length * 0.004;
+        const ahead = course.at(Math.min(course.length, travelled + step));
+        const behind = course.at(Math.max(0, travelled - step));
 
         // The frame is wider than it is tall and the route's user space is
         // stretched to match, so the heading has to be worked out in pixels.
@@ -508,15 +651,31 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         const heading = westbound ? angle - 180 : angle;
         const mirror = westbound ? " scale(-1, 1)" : "";
 
-        ship.style.transform = `translate(${(here.x / 100) * box.w}px, ${
+        el.style.transform = `translate(${(here.x / 100) * box.w}px, ${
           (here.y / 100) * box.h
         }px) translate(-50%, -50%) rotate(${heading}deg)${mirror} scale(${1 / z})`;
 
+        return here;
+      }
+
+      /** One user unit in device pixels, at the current zoom. */
+      const unitSize = (box: { w: number; h: number }) =>
+        (box.w / MAP_W) * z;
+
+      function drawShip(progress: number): { x: number; y: number } | null {
+        // Layout size, not the bounding rect: the ship is a child of the frame
+        // and already inherits its zoom, so measuring the *scaled* box would
+        // apply the scale twice and fling the ship off the map.
+        const box = frameBox();
+        if (box.w === 0) return null;
+
+        const travelled = lengthAt(progress);
+        const here = placeShip(ship, VOYAGE, travelled, box);
+
         // Widths and dashes are stated in user units and converted here, so a
         // line keeps the same thickness on screen at every zoom without asking
-        // any vector-effect to arrange it. One user unit is this many device
-        // pixels:
-        const unit = (box.w / MAP_W) * z;
+        // any vector-effect to arrange it.
+        const unit = unitSize(box);
         sailed.style.strokeWidth = String(1.4 / unit);
         sailed.style.strokeDasharray = String(ROUTE_LENGTH);
         sailed.style.strokeDashoffset = String(ROUTE_LENGTH - travelled);
@@ -533,19 +692,45 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         return here;
       }
 
+      /**
+       * The nostos, at a fraction of its own crossing.
+       *
+       * Drawn from the same numbers as the voyage below it --- same units,
+       * same dash arithmetic --- so the two lines answer to a zoom identically
+       * and neither can go solid on one engine while the other stays dashed.
+       */
+      function drawNostos(fraction: number): void {
+        const box = frameBox();
+        if (box.w === 0) return;
+
+        const travelled = NOSTOS.length * Math.max(0, Math.min(1, fraction));
+        placeShip(nostosShip, NOSTOS, travelled, box);
+
+        const unit = unitSize(box);
+        nostosLine.style.strokeWidth = String(1.3 / unit);
+        nostosLine.style.strokeDasharray = String(NOSTOS.length);
+        nostosLine.style.strokeDashoffset = String(NOSTOS.length - travelled);
+      }
+
+      /**
+       * How far past the nostos the voyage is standing, in words.
+       *
+       * It does not name what it is behind. The nostos counter is directly
+       * beside this one, so the comparison is the adjacency of two numbers in
+       * the same column --- saying "behind the nostos" here would make the
+       * words repeat what the layout already does.
+       */
       function describeLag(day: number): string {
-        const behind = day - diomedes.day;
+        const behind = day - NOSTOS_DAYS;
         if (behind <= 0) return "still on schedule";
-        if (behind < 90) return `${behind} days behind Diomedes`;
+        if (behind < 90) return `${behind} days later`;
         const plural = (n: number, unit: string) =>
           `${n} ${unit}${n === 1 ? "" : "s"}`;
         const years = Math.floor(behind / 365);
         const months = Math.round((behind % 365) / 30);
-        if (years < 1) return `${plural(months, "month")} behind Diomedes`;
+        if (years < 1) return `${plural(months, "month")} later`;
         const y = plural(years, "year");
-        return months
-          ? `${y} ${plural(months, "month")} behind Diomedes`
-          : `${y} behind Diomedes`;
+        return months ? `${y} ${plural(months, "month")} later` : `${y} later`;
       }
 
       let current = -1;
@@ -709,9 +894,6 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         );
       }).observe(rail);
 
-      // Percentages survive a resize; pixels do not, and the marker is redrawn
-      // from the frame's current size each time.
-      window.addEventListener("resize", () => drawShip(progress));
 
       // ---------- zoom and pan ----------
 
@@ -1127,13 +1309,171 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         rampTo(VOLUME);
       });
 
-      show(0);
+      // ---------- the prologue ----------
 
-      // The view has to be applied once even though nothing has moved: it is
-      // what publishes the zoom to everything that reads it, and until it runs
-      // every name is drawn, including the ones that only belong at a closer
-      // scale.
-      applyView(0);
+      /**
+       * Four stages, one attribute, and the page reads differently in each.
+       *
+       * The argument of this page is a comparison, and a comparison asserted
+       * in a corner is not felt. So the benchmark is sailed before it is
+       * quoted: the visitor sends a ship from Troy, watches it make Ithaca in
+       * a week, and only then does the voyage that actually happened arrive
+       * underneath it. By the time the big number appears, the small one it is
+       * being measured against is something they caused.
+       *
+       *   prologue  Troy and Ithaca, and one control: Troy
+       *   sailing   the crossing, and a way past it
+       *   arrived   the ship moored, the count stopped
+       *   voyage    everything, and the nostos left standing as the measure
+       */
+      type Stage = "prologue" | "sailing" | "arrived" | "voyage";
+
+      const root = document.documentElement;
+      const stage = () => (root.dataset.stage ?? "voyage") as Stage;
+      const setStage = (next: Stage) => {
+        root.dataset.stage = next;
+      };
+
+      /** Accelerates out of the harbour, decelerates into the island. */
+      const easeInOut = (t: number) =>
+        t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+      const CROSSING_MS = 4500;
+      const MOORING_MS = 600;
+      let crossingFrame = 0;
+
+      /**
+       * Frame the crossing before it is sailed.
+       *
+       * Worked out from the course itself rather than typed in, so moving a
+       * sea mark cannot leave the camera pointing at the wrong sea. The target
+       * is the course filling about three fifths of the window --- close
+       * enough that a week's sailing is a real distance on screen, wide enough
+       * that Cape Malea and both ends are in frame at once.
+       */
+      const COURSE_FILLS = 0.62;
+
+      function frameNostos() {
+        const xs = NOSTOS.points.map((p) => p.x);
+        const ys = NOSTOS.points.map((p) => p.y);
+        const minX = Math.min(...xs);
+        const maxX = Math.max(...xs);
+        const minY = Math.min(...ys);
+        const maxY = Math.max(...ys);
+
+        // The course's span is a percentage of the *frame*, and the frame is
+        // not the window --- it is letterboxed inside the map's box on
+        // whichever axis is not limiting. So the zoom has to be worked out
+        // against both boxes. Treating the two as one is what put the camera
+        // half as wide as intended on a tall window and looked correct on a
+        // short one.
+        const f = frameBox();
+        if (f.w === 0) return;
+        const fit = Math.min(
+          (COURSE_FILLS * map.clientWidth) / (((maxX - minX) / 100) * f.w),
+          (COURSE_FILLS * map.clientHeight) / (((maxY - minY) / 100) * f.h),
+        );
+
+        centreOn((minX + maxX) / 2, (minY + maxY) / 2, clampZoom(fit));
+        applyView(0);
+      }
+
+      /** Only Troy answers during the prologue. */
+      function lockToPrologue() {
+        markers.forEach((m, i) => {
+          m.disabled = i !== 0;
+        });
+        timeline.disabled = true;
+        markers[0]!.setAttribute("aria-label", "Sail for Ithaca");
+      }
+
+      function unlock() {
+        markers.forEach((m, i) => {
+          m.disabled = false;
+          m.setAttribute("aria-label", `Stop ${i + 1}, ${STOPS[i]!.name}`);
+        });
+        timeline.disabled = false;
+      }
+
+      function sailNostos() {
+        if (stage() !== "prologue") return;
+        setStage("sailing");
+        el("nostos-note").textContent = "under way";
+
+        const started = performance.now();
+        const step = (now: number) => {
+          const t = Math.min(1, (now - started) / CROSSING_MS);
+          nostosProgress = easeInOut(t);
+          drawNostos(nostosProgress);
+
+          // The counter is read off the ship's own position, so the number and
+          // the movement are the same fact rather than two things timed to
+          // agree.
+          el("nostos-day").textContent =
+            `Day ${Math.round(nostosProgress * NOSTOS_DAYS)}`;
+
+          if (t < 1) crossingFrame = requestAnimationFrame(step);
+          else moor();
+        };
+        crossingFrame = requestAnimationFrame(step);
+      }
+
+      /** The ship touches Ithaca. Let it land before anything else happens. */
+      function moor() {
+        setStage("arrived");
+        window.setTimeout(enterVoyage, MOORING_MS);
+      }
+
+      function enterVoyage() {
+        cancelAnimationFrame(crossingFrame);
+        nostosProgress = 1;
+        drawNostos(1);
+        setStage("voyage");
+        unlock();
+        try {
+          sessionStorage.setItem("nostos", "seen");
+        } catch {
+          // Not worth a word to the visitor: the cost is watching it again.
+        }
+        fitMap();
+        current = -1;
+        show(0);
+      }
+
+      markers[0]!.addEventListener("click", () => {
+        if (stage() === "prologue") sailNostos();
+      });
+      document.querySelector("#skip")!.addEventListener("click", enterVoyage);
+
+      /**
+       * The map can change size without the window doing anything.
+       *
+       * The rail taking its height back when the voyage arrives is exactly
+       * that: a CSS height transition, which fires no resize event at all. A
+       * hull placed against the old box would sit off its own course until
+       * something else happened to redraw it. Before the voyage the camera is
+       * re-framed outright, because a fit worked out for one window shape is
+       * not the fit for another.
+       */
+      new ResizeObserver(() => {
+        if (stage() === "voyage") applyView(0);
+        else frameNostos();
+      }).observe(frame);
+
+      if (stage() === "prologue") {
+        lockToPrologue();
+        showText(0);
+        frameNostos();
+        drawNostos(0);
+      } else {
+        // Reduced motion, or a second look this session. The crossing is not
+        // performed, but its result is on the map from the first frame: the
+        // ship moored at Ithaca and the line it took drawn behind it.
+        nostosProgress = 1;
+        show(0);
+        applyView(0);
+        drawNostos(1);
+      }
     </script>
   </body>
 </html>
