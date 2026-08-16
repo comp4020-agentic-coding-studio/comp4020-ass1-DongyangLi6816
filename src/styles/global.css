@@ -1220,26 +1220,50 @@ html:not([data-stage="voyage"]) .counter.is-actual {
   cursor: pointer;
 }
 
-/* Something to aim at, and the only mark left on a phone. */
-.rail-tick::before {
-  content: "";
-  width: 1px;
-  height: 0.32rem;
-  margin-bottom: 0.18rem;
-  background: var(--figure-dim);
-  opacity: 0.4;
+/* ---------- the stops, on the line ----------
+
+   Beads threaded on the voyage, not a row of marks under it. They used to be
+   1px strokes on their own line, which read as graduations on a ruler rather
+   than as places you can be.
+
+   Each carries the slip colour rather than nothing, so the track passes behind
+   it instead of through it. Progress is already the track's job --- it fills
+   clay up to where you are --- so a bead only has to say whether it is behind
+   you, and the thumb says which one you are at. Nothing here restates either. */
+.rail-line {
+  position: relative;
+}
+
+.rail-nodes {
+  position: absolute;
+  inset: 0;
+
+  /* The same half-thumb inset as every other lane, so a stop is at the same x
+     on the calendar, on the line and under its label. */
+  margin-inline: calc(var(--thumb) / 2);
+  pointer-events: none;
+}
+
+.rail-node {
+  position: absolute;
+  top: 50%;
+  width: 0.48rem;
+  height: 0.48rem;
+  translate: -50% -50%;
+  border: 1px solid var(--figure-dim);
+  border-radius: 50%;
+  background: var(--slip);
+  opacity: 0.6;
   transition:
-    background 0.2s ease,
-    opacity 0.2s ease;
+    background 0.25s ease,
+    border-color 0.25s ease,
+    opacity 0.25s ease;
 }
 
-.rail-tick.is-past::before {
-  background: var(--clay);
-  opacity: 0.85;
-}
-
-.rail-tick.is-active::before {
-  width: 2px;
+/* Brighter than the clay the track fills with, or a passed stop would vanish
+   into the very line that says it was passed. */
+.rail-node.is-past {
+  border-color: var(--clay-bright);
   background: var(--clay-bright);
   opacity: 1;
 }
@@ -1404,8 +1428,11 @@ html:not([data-stage="voyage"]) .counter.is-actual {
     height: 1.5rem;
   }
 
-  .rail-tick::before {
-    height: 0.55rem;
+  /* The only marks left on a phone, where the labels are gone. Both axes, or
+     the bead goes oval. */
+  .rail-node {
+    width: 0.56rem;
+    height: 0.56rem;
   }
 
   /* Two markers on screen instead of fourteen, so the lettering that would

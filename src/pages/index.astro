@@ -320,14 +320,25 @@ const coastline = roughen(rawCoastline);
         <label class="visually-hidden" for="timeline">
           Voyage stop — drag or use the arrow keys
         </label>
-        <input
-          type="range"
-          id="timeline"
-          min="0"
-          max={STOPS.length - 1}
-          step="any"
-          value="0"
-        />
+        {/* The stops sit on the line the voyage runs along rather than on a
+            row of their own beneath it. Inert, and deliberately so: the slider
+            underneath is the control, and pressing it anywhere already goes to
+            the nearest stop, so a bead that could also be pressed would be a
+            second control doing the first one's job. */}
+        <div class="rail-line">
+          <input
+            type="range"
+            id="timeline"
+            min="0"
+            max={STOPS.length - 1}
+            step="any"
+            value="0"
+          />
+          <div class="rail-nodes" aria-hidden="true">
+            {markers.map((m) => <span class="rail-node" data-index={m.index} />)}
+          </div>
+        </div>
+
         <div class="rail-ticks" aria-hidden="true">
           {
             markers.map((m) => (
@@ -374,9 +385,14 @@ const coastline = roughen(rawCoastline);
         ...document.querySelectorAll<HTMLButtonElement>(".marker"),
       ];
       const ticks = [...document.querySelectorAll<HTMLElement>(".rail-tick")];
-      ticks.forEach((tick, i) => {
-        tick.style.left = `${(i / (STOPS.length - 1)) * 100}%`;
-      });
+      const nodes = [...document.querySelectorAll<HTMLElement>(".rail-node")];
+      // One axis for the label column and the bead on the line, so a stop is
+      // at the same x in both.
+      [ticks, nodes].forEach((row) =>
+        row.forEach((el, i) => {
+          el.style.left = `${(i / (STOPS.length - 1)) * 100}%`;
+        }),
+      );
       const frame = document.querySelector<HTMLElement>(".map-frame")!;
       const ship = document.querySelector<SVGSVGElement>("#ship")!;
       const sailed = document.querySelector<SVGPolylineElement>("#route-sailed")!;
@@ -758,9 +774,27 @@ const coastline = roughen(rawCoastline);
        * Calypso's seven years is the longest thing on the page. The stop the
        * poem spends 85% of its counted time on is the one where nothing moves.
        */
-      function travelTime(distance: number): number {
+      /**
+       * How long a crossing takes, from how much sea it actually covers.
+       *
+       * This used to count stops jumped and cap at three, so Troy to Ithaca ---
+       * the length of the Mediterranean --- took the same 660ms as a hop
+       * between neighbours, and the camera tore across the map to keep up. The
+       * fraction is of the whole drawn route, so a leg's real length sets its
+       * clock.
+       *
+       * Square-rooted rather than linear: a crossing eight times longer should
+       * feel longer, not take eight times the patience.
+       */
+      function travelTime(fraction: number): number {
         if (stillness.matches) return 0;
-        return 240 + 140 * Math.min(3, distance);
+        // The floor is most of it. Even neighbouring stops are a sea crossing
+        // --- the shortest leg on the map is still 1.8% of the route, about
+        // ninety nautical miles --- and at anything under a second the ship
+        // arrives before the eye has followed it out of the harbour. This is a
+        // page about a journey taking longer than anyone expected; nothing on
+        // it should snap.
+        return 820 + 1450 * Math.sqrt(Math.min(1, fraction));
       }
 
       function dwellTime(days: number): number {
@@ -774,22 +808,31 @@ const coastline = roughen(rawCoastline);
         const fromProgress = progress;
         const fromDay = day;
         const toDay = Math.round(DAYS[index]!);
-        const travel = travelTime(Math.abs(index - fromProgress));
+        // How much of the drawn route this crossing covers, which is what sets
+        // both the clock below and how far the camera pulls back.
+        const span =
+          Math.abs(lengthAt(index) - lengthAt(fromProgress)) / ROUTE_LENGTH;
+        const travel = travelTime(span);
 
-        // The camera moves on the ship's clock, so the two arrive together.
-        if (hasSelected) {
-          const target = ROUTE[STOP_AT[index]!]!;
-          frame.style.transitionDuration = `${Math.max(240, travel)}ms`;
-          centreOn(target.x, target.y, Math.max(z, AUTO_ZOOM));
-          clampView();
-          frame.style.transform = `translate(${tx}px, ${ty}px) scale(${z})`;
-          frame.style.setProperty("--z", String(z));
-          map.classList.toggle("is-zoomed", z > 1.001);
-          clay.setAttribute("patternTransform", `scale(${1 / z})`);
-          for (const name of namesByZoom) {
-            name.el.classList.toggle("is-held", z < name.from - 0.001);
-          }
-        }
+        /**
+         * The camera rides with the ship instead of panning to where it will
+         * be.
+         *
+         * It used to be set once, to the destination, on a CSS transition of
+         * the same length. At this zoom a long leg made the map tear past ---
+         * the ship sailed one way and the view went another, and the two only
+         * agreed again at the end. Following the hull frame by frame means the
+         * movement on screen is the voyage rather than a camera chasing it.
+         *
+         * And it breathes out on the way: `dip` pulls the zoom back at the
+         * middle of a long crossing and settles in again on arrival, so you
+         * can see the water being crossed. A short hop barely moves it.
+         */
+        const following = hasSelected;
+        const startZoom = z;
+        const endZoom = Math.max(z, AUTO_ZOOM);
+        const dip = span * (endZoom - 1) * 0.55;
+
         hasSelected = true;
         const dwell = dwellTime(Math.abs(toDay - fromDay));
         const started = performance.now();
@@ -805,7 +848,22 @@ const coastline = roughen(rawCoastline);
           progress = fromProgress + (index - fromProgress) * easeOut(sailing);
           day = Math.round(fromDay + (toDay - fromDay) * easeOut(staying));
 
-          drawShip(progress);
+          const here = drawShip(progress);
+          if (!scrubbing) timeline.value = String(progress);
+          if (following && here) {
+            const eased = easeOut(sailing);
+            // sin is zero at both ends and one in the middle, so the pull-back
+            // is spent entirely on the crossing and nothing is left of it on
+            // arrival.
+            const breath = Math.sin(Math.PI * sailing) * dip;
+            centreOn(
+              here.x,
+              here.y,
+              Math.max(1, startZoom + (endZoom - startZoom) * eased - breath),
+            );
+            applyView(0);
+          }
+
           el("day-count").textContent = `Day ${day.toLocaleString()}`;
           el("day-note").textContent =
             index === 0 && day === 0 ? "still at Troy" : describeLag(day);
@@ -867,6 +925,9 @@ const coastline = roughen(rawCoastline);
           t.classList.toggle("is-active", i === index);
           t.classList.toggle("is-past", i < index);
         });
+        // The bead only says whether the stop is behind you. Which one you are
+        // at is the thumb sitting on top of it.
+        nodes.forEach((n, i) => n.classList.toggle("is-past", i < index));
         marks.forEach(({ el: mark }, i) => {
           mark.classList.toggle("is-active", i === index);
           mark.classList.toggle("is-past", i < index);
@@ -885,7 +946,9 @@ const coastline = roughen(rawCoastline);
       function show(index: number) {
         if (index === current) return;
         showText(index);
-        if (timeline.valueAsNumber !== index) timeline.value = String(index);
+        // The thumb is not set here. `animateTo` walks it across with the ship,
+        // so the rail crosses the distance rather than arriving first and
+        // waiting for the map to catch up.
         animateTo(index);
       }
 
@@ -1179,32 +1242,87 @@ const coastline = roughen(rawCoastline);
         if (nearest !== current) showText(nearest);
       }
 
-      timeline.addEventListener("pointerdown", () => {
-        scrubbing = true;
-        // Enter the following zoom before the first move, so the drag starts
-        // from the scale it is going to stay at rather than jumping into it a
-        // frame later.
+      /**
+       * A press is not a drag until it moves.
+       *
+       * `pointerdown` used to start scrubbing outright, which meant a plain
+       * click on the rail --- the most obvious way to go to a stop --- ran
+       * `scrubTo` and set the position instantly. The ship teleported, and no
+       * amount of tuning `travelTime` touched it, because a click never
+       * reached `animateTo` at all. A press that never moves is a click now,
+       * and gets the crossing.
+       */
+      const SCRUB_SLOP = 4;
+      let pressing = false;
+      let pressX = 0;
+
+      timeline.addEventListener("pointerdown", (event) => {
+        pressing = true;
+        scrubbing = false;
+        pressX = event.clientX;
         hasSelected = true;
+      });
+
+      timeline.addEventListener("pointermove", (event) => {
+        if (!pressing || scrubbing) return;
+        if (Math.abs(event.clientX - pressX) < SCRUB_SLOP) return;
+        scrubbing = true;
+        // Enter the following zoom as the drag begins, so it starts from the
+        // scale it is going to stay at rather than jumping into it a frame
+        // later.
         followShip(drawShip(progress));
+        scrubTo(timeline.valueAsNumber);
       });
 
       timeline.addEventListener("input", () => {
-        if (scrubbing) scrubTo(timeline.valueAsNumber);
-        else show(Math.round(timeline.valueAsNumber));
+        if (scrubbing) {
+          scrubTo(timeline.valueAsNumber);
+          return;
+        }
+        if (pressing) {
+          // The browser has already thrown the thumb to the press point. Put
+          // it back on the ship and let the crossing carry it across, so the
+          // rail shows the journey the map is showing rather than arriving
+          // first and waiting.
+          timeline.value = String(progress);
+          return;
+        }
+        show(Math.round(timeline.valueAsNumber));
       });
 
-      // Commit on release: snap to the nearest stop and bring the map with it.
-      const commit = () => {
-        if (!scrubbing) return;
+      const release = (event: PointerEvent | Event) => {
+        if (!pressing) return;
+        const wasScrubbing = scrubbing;
+        pressing = false;
         scrubbing = false;
-        const index = Math.round(timeline.valueAsNumber);
-        timeline.value = String(index);
-        current = -1;
+
+        // A click reads its target off where the pointer landed, because the
+        // value was put back on the ship while the press was held.
+        const index = wasScrubbing
+          ? Math.round(timeline.valueAsNumber)
+          : indexAt(event);
+        if (wasScrubbing) {
+          timeline.value = String(index);
+          current = -1;
+        }
         show(index);
       };
-      timeline.addEventListener("pointerup", commit);
-      timeline.addEventListener("pointercancel", commit);
-      timeline.addEventListener("change", commit);
+
+      /** Which stop a press at this x is nearest to. */
+      function indexAt(event: PointerEvent | Event): number {
+        const box = timeline.getBoundingClientRect();
+        const x = "clientX" in event ? (event as PointerEvent).clientX : 0;
+        const inset = 7; // half a thumb: the track the value maps onto
+        const across =
+          (x - box.left - inset) / Math.max(1, box.width - inset * 2);
+        return Math.max(
+          0,
+          Math.min(STOPS.length - 1, Math.round(across * (STOPS.length - 1))),
+        );
+      }
+
+      timeline.addEventListener("pointerup", release);
+      timeline.addEventListener("pointercancel", release);
 
       // `step="any"` makes the arrow keys move by a hair, which is useless on a
       // control whose values are fourteen places. They move by whole stops.
@@ -1476,6 +1594,11 @@ const coastline = roughen(rawCoastline);
         // already there.
         current = -1;
         showText(0);
+
+        // The whole basin has now been seen once, which is the only thing the
+        // opening view was protecting. From here a stop is worth going in for,
+        // so the first click behaves like every click after it.
+        hasSelected = true;
 
         if (stillness.matches) {
           markerLayer.classList.remove("is-arriving");
