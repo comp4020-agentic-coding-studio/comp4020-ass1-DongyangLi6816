@@ -159,6 +159,29 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
       </div>
 
       <div class="rail">
+        {/* Two lanes over one control.
+
+            The lane above is the calendar: every stop drawn at the width the
+            poem gives it. The controls below stay evenly spaced, because six
+            of the stops fall inside the first fifty days and a rail drawn to
+            scale would stack them into one unclickable point.
+
+            The leaders between the lanes are the argument. The voyage everyone
+            remembers is the even one; the calendar is what the poem counts.
+            The distance between a stop's two positions is the distance between
+            those two things. */}
+        <div class="calendar" aria-hidden="true">
+          <div class="cal-track" id="cal-track"></div>
+          <svg
+            class="leaders"
+            id="leaders"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+          >
+            <path id="leader-path"></path>
+          </svg>
+        </div>
+
         <label class="visually-hidden" for="timeline">
           Voyage stop — drag or use the arrow keys
         </label>
@@ -180,6 +203,16 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
             ))
           }
         </div>
+        <p class="rail-foot">
+          <button type="button" class="scale-toggle" id="scale-toggle" aria-pressed="false">
+            <span class="scale-dot"></span>
+            <span id="scale-label">Story order</span>
+          </button>
+          <span class="scale-note" id="scale-note">
+            Fourteen stops, evenly spaced, the way the voyage is retold.
+          </span>
+        </p>
+
         <p class="rail-hint" id="rail-hint">
           {`Drag the timeline, or press a stop on the map. ${TOTAL_STATED_DAYS.toLocaleString()} days are all the poem actually counts — ${STOPS_WITHOUT_DURATION} of these fourteen stops carry no stated duration at all.`}
         </p>
@@ -190,8 +223,10 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
       import {
         BENCHMARKS,
         STOPS,
+        calendarSpan,
         dayAt,
         routePoints,
+        storyPosition,
       } from "../data/voyage.ts";
 
       const timeline = document.querySelector<HTMLInputElement>("#timeline")!;
@@ -495,6 +530,11 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
           clay.setAttribute("patternTransform", `scale(${1 / z})`);
         }
         hasSelected = true;
+
+        // The reveal happens once, at the stop it is about. Arriving at Ogygia
+        // is the moment the retelling and the calendar come apart, so that is
+        // where the lane stops pretending they are the same shape.
+        if (index === 11 && mixTarget < 0.5) setScale(1);
         const dwell = dwellTime(Math.abs(toDay - fromDay));
         const started = performance.now();
 
@@ -557,6 +597,10 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         ticks.forEach((t, i) => {
           t.classList.toggle("is-active", i === index);
           t.classList.toggle("is-past", i < index);
+        });
+        marks.forEach(({ el }, i) => {
+          el.classList.toggle("is-active", i === index);
+          el.classList.toggle("is-past", i < index);
         });
 
         if (timeline.valueAsNumber !== index) timeline.value = String(index);
@@ -694,7 +738,115 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
 
       window.addEventListener("resize", () => applyView(false));
 
-      timeline.addEventListener("input", () => show(timeline.valueAsNumber));
+      // ---------- the calendar lane ----------
+
+      /**
+       * One lane, two scales, and a number between them.
+       *
+       * `mix` at 0 draws every stop at its position in the retelling --- evenly
+       * spaced, which is how everyone remembers the voyage and how the controls
+       * below are laid out. At 1 it draws them on a calendar: each stay as wide
+       * as the days the poem gives it. Everything is interpolated between the
+       * two, so the same code draws both ends and every frame of the collapse.
+       *
+       * The blocks and the leaders are drawn together in one pass rather than
+       * left to CSS transitions, because they have to agree exactly: a leader
+       * that arrives a frame after its block reads as a rendering fault, not
+       * as an argument.
+       */
+      const track = document.querySelector<HTMLElement>("#cal-track")!;
+      const leaderPath = document.querySelector<SVGPathElement>("#leader-path")!;
+      const scaleToggle = document.querySelector<HTMLButtonElement>("#scale-toggle")!;
+      const scaleLabel = document.querySelector<HTMLElement>("#scale-label")!;
+      const scaleNote = document.querySelector<HTMLElement>("#scale-note")!;
+
+      const SPANS = STOPS.map((_, i) => calendarSpan(i));
+      const STORY = STOPS.map((_, i) => storyPosition(i));
+
+      const marks = STOPS.map((stop, i) => {
+        const el = document.createElement("span");
+        const hasWidth = (stop.days ?? 0) > 0;
+        el.className = hasWidth ? "cal-block" : "cal-gap";
+        el.dataset.index = String(i);
+        track.append(el);
+        return { el, hasWidth };
+      });
+
+      let mix = 0;
+      let mixTarget = 0;
+      let mixFrame = 0;
+
+      /** A stop's left edge and width on the lane, at the current blend. */
+      function laneGeometry(i: number) {
+        // In story order a stop is a point on an even rail; on the calendar it
+        // is an interval. Blending between a point and an interval is what
+        // makes the collapse read as one thing opening rather than two
+        // pictures cross-fading.
+        const evenStart = STORY[i]!;
+        const evenEnd = i === 0 ? 0 : STORY[i - 1]!;
+        const start = evenEnd + (SPANS[i]!.start - evenEnd) * mix;
+        const end = evenStart + (SPANS[i]!.end - evenStart) * mix;
+        return { start: start * 100, width: Math.max(0, end - start) * 100 };
+      }
+
+      function drawCalendar() {
+        const leaders: string[] = [];
+        marks.forEach(({ el, hasWidth }, i) => {
+          const { start, width } = laneGeometry(i);
+          if (hasWidth) {
+            el.style.left = `${start}%`;
+            el.style.width = `${width}%`;
+          } else {
+            el.style.left = `${start + width}%`;
+          }
+          // From the control below, which never moves, to where this stop
+          // actually falls on the calendar above.
+          leaders.push(`M${STORY[i]! * 100} 100L${start + width} 0`);
+        });
+        leaderPath.setAttribute("d", leaders.join(""));
+      }
+
+      function setScale(next: number, animated = true) {
+        mixTarget = Math.max(0, Math.min(1, next));
+        const showsCalendar = mixTarget > 0.5;
+        scaleToggle.setAttribute("aria-pressed", String(showsCalendar));
+        scaleLabel.textContent = showsCalendar ? "True calendar" : "Story order";
+        scaleNote.textContent = showsCalendar
+          ? `Every stay at the width the poem gives it. Ogygia is ${Math.round(
+              (SPANS[11]!.end - SPANS[11]!.start) * 100,
+            )} per cent of it.`
+          : "Fourteen stops, evenly spaced, the way the voyage is retold.";
+
+        if (!animated || stillness.matches) {
+          mix = mixTarget;
+          drawCalendar();
+          return;
+        }
+
+        const from = mix;
+        const started = performance.now();
+        const duration = 900;
+        cancelAnimationFrame(mixFrame);
+        const step = (now: number) => {
+          const t = Math.min(1, (now - started) / duration);
+          mix = from + (mixTarget - from) * easeOut(t);
+          drawCalendar();
+          if (t < 1) mixFrame = requestAnimationFrame(step);
+        };
+        mixFrame = requestAnimationFrame(step);
+      }
+
+      scaleToggle.addEventListener("click", () =>
+        setScale(mixTarget > 0.5 ? 0 : 1),
+      );
+
+      window.addEventListener("resize", drawCalendar);
+
+      // Reduced motion gets the calendar from the start rather than a collapse
+      // it cannot see: the fact matters more than the reveal.
+      setScale(stillness.matches ? 1 : 0, false);
+
+            timeline.addEventListener("input", () => show(timeline.valueAsNumber));
       markers.forEach((m, i) => m.addEventListener("click", () => show(i)));
       ticks.forEach((t, i) => t.addEventListener("click", () => show(i)));
 

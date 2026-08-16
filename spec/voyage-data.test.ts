@@ -15,10 +15,12 @@ import {
   STOPS,
   STOPS_WITHOUT_DURATION,
   TOTAL_STATED_DAYS,
+  calendarSpan,
   dayAt,
   markerGap,
   project,
   projectMarker,
+  storyPosition,
 } from "../src/data/voyage.ts";
 
 describe("voyage data: durations match the research", () => {
@@ -144,6 +146,50 @@ describe("voyage data: benchmarks", () => {
   it("cites a source for every benchmark", () => {
     for (const b of BENCHMARKS) {
       expect(b.source, `${b.id} has no source`).toBeTruthy();
+    }
+  });
+});
+
+describe("the calendar rail", () => {
+  it("runs forwards and never doubles back", () => {
+    for (let i = 1; i < STOPS.length; i++) {
+      expect(calendarSpan(i).start).toBeGreaterThanOrEqual(
+        calendarSpan(i - 1).end - 1e-9,
+      );
+      expect(calendarSpan(i).end).toBeGreaterThanOrEqual(calendarSpan(i).start);
+    }
+  });
+
+  it("gives a stop with no stated duration no width", () => {
+    const widthless = STOPS.map((stop, i) => ({ stop, i }))
+      .filter(({ stop }) => stop.days === null || stop.days === 0)
+      .map(({ i }) => calendarSpan(i));
+
+    expect(widthless.length).toBeGreaterThan(0);
+    for (const span of widthless) {
+      expect(span.end - span.start).toBeCloseTo(0, 10);
+    }
+  });
+
+  it("hands Ogygia most of the bar", () => {
+    const ogygia = STOPS.findIndex((stop) => stop.id === "ogygia");
+    const span = calendarSpan(ogygia);
+    expect(span.end - span.start).toBeGreaterThan(0.8);
+  });
+
+  it("spans exactly one whole bar", () => {
+    expect(calendarSpan(0).start).toBe(0);
+    expect(calendarSpan(STOPS.length - 1).end).toBeCloseTo(1, 10);
+  });
+
+  it("tells the story evenly, which is the comparison the rail makes", () => {
+    expect(storyPosition(0)).toBe(0);
+    expect(storyPosition(STOPS.length - 1)).toBe(1);
+    for (let i = 1; i < STOPS.length; i++) {
+      expect(storyPosition(i) - storyPosition(i - 1)).toBeCloseTo(
+        1 / (STOPS.length - 1),
+        10,
+      );
     }
   });
 });

@@ -421,5 +421,25 @@ export function dayAt(index: number): number {
   return STOPS.slice(0, index + 1).reduce((sum, s) => sum + (s.days ?? 0), 0);
 }
 
+/**
+ * Where a stop sits on a calendar drawn to scale, as fractions of the whole.
+ *
+ * The stay at a stop runs from the day the voyage stood at when it arrived to
+ * the day it stood at when it left, so a stop the poem gives no duration for
+ * has `start === end` and no width at all. That is the point: on a true
+ * calendar eight of the fourteen stops are lines with no thickness, and
+ * Ogygia is most of the bar.
+ */
+export function calendarSpan(index: number): { start: number; end: number } {
+  const end = dayAt(index) / TOTAL_STATED_DAYS;
+  const start = index === 0 ? 0 : dayAt(index - 1) / TOTAL_STATED_DAYS;
+  return { start, end };
+}
+
+/** Where a stop sits when the rail is drawn as the story is told: evenly. */
+export function storyPosition(index: number): number {
+  return index / (STOPS.length - 1);
+}
+
 /** How many stops give no duration at all. Shown on the page, not hidden. */
 export const STOPS_WITHOUT_DURATION = STOPS.filter((s) => s.days === null).length;

@@ -45,7 +45,7 @@
   --serif: "EB Garamond", "Palatino", "Iowan Old Style", "Georgia", serif;
   --mono: ui-monospace, "SF Mono", "Menlo", monospace;
   --topbar-h: 5rem;
-  --rail-h: 7rem;
+  --rail-h: 11.5rem;
   --band-h: 14px;
   --panel-w: 23rem;
 
@@ -691,6 +691,129 @@ body::after {
   background: var(--slip);
 }
 
+/* ---------- calendar lane ---------- */
+
+.calendar {
+  position: relative;
+  height: 3.4rem;
+  margin: 0.35rem 0 0.2rem;
+}
+
+/* A ground for the blocks to sit in, so a stay reads as a length of something
+   rather than as a bar floating under the border. */
+.cal-track {
+  position: relative;
+  height: 1.15rem;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: rgb(0 0 0 / 28%);
+}
+
+/* A stay the poem gives a length to. Width is the length. */
+.cal-block {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border: 1px solid rgb(0 0 0 / 35%);
+  border-radius: 1px;
+  background: var(--clay);
+  opacity: 0.42;
+  transition: opacity 0.25s ease;
+}
+
+.cal-block.is-active {
+  background: var(--clay-bright);
+  opacity: 0.95;
+}
+
+.cal-block.is-past {
+  opacity: 0.6;
+}
+
+/* A stop the poem gives no length to. Not a small block --- no width at all,
+   because that is the fact. It still gets a hairline so it can be seen. */
+.cal-gap {
+  position: absolute;
+  top: -2px;
+  width: 1px;
+  height: calc(100% + 4px);
+  background: var(--figure-dim);
+  opacity: 0.45;
+}
+
+.cal-gap.is-active {
+  background: var(--clay-bright);
+  opacity: 1;
+}
+
+.leaders {
+  position: absolute;
+  top: 1.3rem;
+  left: 0;
+  width: 100%;
+  height: calc(3.4rem - 1.15rem);
+}
+
+.leaders path {
+  fill: none;
+  stroke: var(--land-edge);
+  stroke-width: 1;
+  opacity: 0.55;
+  vector-effect: non-scaling-stroke;
+}
+
+/* ---------- scale toggle ---------- */
+
+.rail-foot {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  margin: 0.5rem 0 0;
+}
+
+.scale-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: none;
+  color: var(--figure-dim);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.scale-toggle:hover,
+.scale-toggle[aria-pressed="true"] {
+  border-color: var(--clay);
+  color: var(--figure);
+}
+
+.scale-dot {
+  width: 0.42rem;
+  height: 0.42rem;
+  border: 1px solid currentcolor;
+  border-radius: 50%;
+}
+
+.scale-toggle[aria-pressed="true"] .scale-dot {
+  background: var(--clay-bright);
+  border-color: var(--clay-bright);
+}
+
+.scale-note {
+  color: var(--figure-dim);
+  font-size: 0.68rem;
+}
+
 #timeline {
   display: block;
   width: 100%;
@@ -740,7 +863,22 @@ body::after {
 
 @media (width <= 52rem) {
   :root {
-    --rail-h: 5rem;
+    --rail-h: 9rem;
+  }
+
+  /* No room for two lanes and the leaders between them. The calendar itself is
+     the part that carries the argument, so it stays and the leaders go. */
+  .calendar {
+    height: 1.3rem;
+  }
+
+  .leaders {
+    display: none;
+  }
+
+  .rail-foot {
+    flex-direction: column;
+    gap: 0.3rem;
   }
 
   body {
