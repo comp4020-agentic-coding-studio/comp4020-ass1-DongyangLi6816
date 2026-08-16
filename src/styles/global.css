@@ -220,8 +220,14 @@ body::after {
 }
 
 .map {
+  position: relative;
   display: grid;
   place-items: center;
+
+  /* At rest a vertical swipe still scrolls the phone page; once zoomed the map
+     owns the gesture. Pinch is left off the list either way, so two fingers
+     reach the pointer handlers instead of the browser's own page zoom. */
+  touch-action: pan-y;
   background: var(--sea);
   overflow: hidden;
   container-type: size;
@@ -229,6 +235,64 @@ body::after {
 
 .map:focus-visible {
   outline-offset: -3px;
+}
+
+/* ---------- map controls ---------- */
+
+.map-controls {
+  position: absolute;
+  z-index: 5;
+  top: 0.7rem;
+  right: 0.7rem;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.map-controls button {
+  display: grid;
+  place-items: center;
+  min-width: 2rem;
+  min-height: 2rem;
+  padding: 0 0.4rem;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: rgb(20 16 12 / 82%);
+  color: var(--figure-dim);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.map-controls button:hover {
+  border-color: var(--clay);
+  color: var(--figure);
+}
+
+.map-hint {
+  position: absolute;
+  z-index: 5;
+  bottom: 0.6rem;
+  left: 0.8rem;
+  margin: 0;
+  color: var(--figure-dim);
+  font-size: 0.66rem;
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+/* Dragging the map should feel like moving paper, and a drag in progress must
+   not leave text selected behind it. */
+.map.is-panning {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.map.is-zoomed {
+  cursor: grab;
+  touch-action: none;
 }
 
 /* Holds the coastline's aspect ratio so percentage-positioned markers land on
@@ -241,6 +305,18 @@ body::after {
   position: relative;
   width: min(100cqw, 100cqh * 1600 / 954);
   aspect-ratio: 1600 / 954;
+
+  /* Zoom and pan live here, on one element, so every layer inside --- sea
+     marks, coastline, names, route, markers, ship --- moves as one picture.
+     `--z` is the current scale, published so the things that must not grow
+     with it can divide themselves back down. Origin at the top left keeps the
+     arithmetic in the script honest: a frame point maps to translate + z * p,
+     with no half-sizes to carry around. */
+  --z: 1;
+
+  transform-origin: 0 0;
+  transition: transform 480ms cubic-bezier(0.33, 1, 0.68, 1);
+  will-change: transform;
 }
 
 .coastline {
@@ -331,7 +407,7 @@ body::after {
 .placenames text {
   fill: var(--figure);
   font-family: var(--serif);
-  font-size: 12px;
+  font-size: calc(12px / var(--z, 1));
   letter-spacing: 0.18em;
   text-anchor: middle;
   text-transform: uppercase;
@@ -346,7 +422,7 @@ body::after {
 }
 
 .malea text {
-  font-size: 11px;
+  font-size: calc(11px / var(--z, 1));
   font-style: italic;
   letter-spacing: 0.1em;
   text-transform: none;
@@ -416,6 +492,11 @@ body::after {
   color: inherit;
   font: inherit;
   cursor: pointer;
+
+  /* Held at a constant size as the map zooms: a pin is furniture, not terrain.
+     The button's hit area shrinks with it, but it starts well above the
+     minimum and the whole point of zooming in is that the stops move apart. */
+  scale: calc(1 / var(--z, 1));
   transition:
     scale 0.25s ease,
     filter 0.25s ease;
@@ -423,7 +504,7 @@ body::after {
 
 .marker:hover,
 .marker:focus-visible {
-  scale: 1.12;
+  scale: calc(1.12 / var(--z, 1));
   z-index: 3;
 }
 
@@ -696,8 +777,15 @@ body::after {
 
   /* At 390px the frame is a quarter of its desktop width, so 12px lettering
      lands at 3px --- smudges, not names. Same rule as on the desktop map: a
-     name the visitor cannot read is worse than no name. */
+     name the visitor cannot read is worse than no name. They come back as the
+     map zooms in, because the counter-scaling is against `--z`. */
   .placenames {
+    display: none;
+  }
+
+  /* The hint describes a mouse. On a phone the gestures are the obvious ones
+     and the words are just something else covering the map. */
+  .map-hint {
     display: none;
   }
 
@@ -717,6 +805,7 @@ body::after {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .map-frame,
   .marker,
   .marker-dot,
   .marker-name,

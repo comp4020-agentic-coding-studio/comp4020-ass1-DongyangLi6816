@@ -100,7 +100,7 @@ if (outside.length > 0) {
         x={p.x}
         y={p.y}
         style={[
-          p.size ? `font-size:${p.size}px` : "",
+          p.size ? `font-size:calc(${p.size}px / var(--z, 1))` : "",
           // Inline, not a presentation attribute: the stylesheet sets
           // text-anchor for every label and CSS beats presentation attributes.
           p.anchor ? `text-anchor:${p.anchor}` : "",

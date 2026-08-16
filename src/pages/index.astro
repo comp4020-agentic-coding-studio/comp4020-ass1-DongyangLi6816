@@ -130,6 +130,18 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
               }
             </div>
           </div>
+
+          {/* Outside the frame, so the controls do not zoom with the map. */}
+          <div class="map-controls">
+            <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
+            <button type="button" id="zoom-out" aria-label="Zoom out">−</button>
+            <button type="button" id="zoom-fit" aria-label="Show the whole map">
+              Fit
+            </button>
+          </div>
+          <p class="map-hint" id="map-hint">
+            Scroll to zoom, drag to pan. Plus and minus zoom, Escape fits.
+          </p>
         </div>
 
         <aside class="panel" id="scene" aria-live="polite">
@@ -191,6 +203,8 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
       const ship = document.querySelector<SVGSVGElement>("#ship")!;
       const sailed = document.querySelector<SVGPolylineElement>("#route-sailed")!;
       const panel = document.querySelector<HTMLElement>("#scene")!;
+      const map = document.querySelector<HTMLElement>("#map")!;
+      const clay = document.querySelector<SVGPatternElement>("#clay-ground")!;
 
       const el = (id: string) => document.getElementById(id)!;
       const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
@@ -212,7 +226,112 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
        */
       const { points: ROUTE, stopAt: STOP_AT } = routePoints();
 
-      function metrics(box: DOMRect): { cum: number[]; total: number } {
+      /**
+       * Zoom and pan.
+       *
+       * The whole picture is one element, so this is three numbers: a scale and
+       * a translation, applied to `.map-frame` with its origin at the top left.
+       * A frame point p lands at `offset + t + z * p`, where `offset` is where
+       * the centred frame sits inside the map's clip box.
+       *
+       * Two decisions worth naming. The auto-zoom is deliberately shallow ---
+       * a stop is worth a closer look, but the page's argument is a shape you
+       * can only see whole, the lettered east against the empty west where all
+       * fourteen stops sit, and a tight zoom throws that away. And the view is
+       * clamped so the frame always covers the window: a map that can be
+       * dragged off into blank space feels broken, however correct the maths.
+       */
+      const AUTO_ZOOM = 2.2;
+      const MAX_ZOOM = 6;
+
+      let z = 1;
+      let tx = 0;
+      let ty = 0;
+
+      // The first paint is the whole map on purpose. The page's argument is a
+      // shape --- the lettered east against the empty west where every stop
+      // sits --- and it has to be seen once before anything zooms into it.
+      let hasSelected = false;
+
+      const frameBox = () => ({ w: frame.clientWidth, h: frame.clientHeight });
+
+      /** Where the centred frame's top left sits inside the map's clip box. */
+      function offset() {
+        const f = frameBox();
+        return {
+          x: (map.clientWidth - f.w) / 2,
+          y: (map.clientHeight - f.h) / 2,
+        };
+      }
+
+      function clampView() {
+        const f = frameBox();
+        const off = offset();
+        const fit = (
+          t: number,
+          span: number,
+          window: number,
+          o: number,
+        ): number => {
+          const scaled = span * z;
+          // Too small to fill the window on this axis: centre it instead of
+          // letting it drift to an edge.
+          if (scaled <= window) return (window - scaled) / 2 - o;
+          return Math.max(window - o - scaled, Math.min(-o, t));
+        };
+        tx = fit(tx, f.w, map.clientWidth, off.x);
+        ty = fit(ty, f.h, map.clientHeight, off.y);
+      }
+
+      function applyView(animated = true) {
+        clampView();
+        frame.style.transitionDuration =
+          animated && !stillness.matches ? "" : "0ms";
+        frame.style.transform = `translate(${tx}px, ${ty}px) scale(${z})`;
+        frame.style.setProperty("--z", String(z));
+        map.classList.toggle("is-zoomed", z > 1.001);
+
+        // The clay tooth is a surface, not a feature of the terrain: left to
+        // scale it stops being tooth at about 1.5x and becomes polka dots.
+        clay.setAttribute("patternTransform", `scale(${1 / z})`);
+        drawShip(progress);
+      }
+
+      /** Put a point of the frame, in percent, at the centre of the window. */
+      function centreOn(xPercent: number, yPercent: number, scale: number) {
+        const f = frameBox();
+        const off = offset();
+        z = scale;
+        tx = map.clientWidth / 2 - off.x - (z * xPercent * f.w) / 100;
+        ty = map.clientHeight / 2 - off.y - (z * yPercent * f.h) / 100;
+      }
+
+      /** Zoom about a point given in client coordinates, keeping it fixed. */
+      function zoomAbout(clientX: number, clientY: number, next: number) {
+        const box = map.getBoundingClientRect();
+        const off = offset();
+        const px = clientX - box.left - off.x - tx;
+        const py = clientY - box.top - off.y - ty;
+        const ratio = next / z;
+        tx -= px * (ratio - 1);
+        ty -= py * (ratio - 1);
+        z = next;
+        applyView(false);
+      }
+
+      const clampZoom = (value: number) => Math.min(MAX_ZOOM, Math.max(1, value));
+
+      function fitMap() {
+        z = 1;
+        tx = 0;
+        ty = 0;
+        applyView();
+      }
+
+      function metrics(box: { w: number; h: number }): {
+        cum: number[];
+        total: number;
+      } {
         const cum = [0];
         for (let i = 1; i < ROUTE.length; i++) {
           const a = ROUTE[i - 1]!;
@@ -220,8 +339,8 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
           cum.push(
             cum[i - 1]! +
               Math.hypot(
-                ((b.x - a.x) / 100) * box.width,
-                ((b.y - a.y) / 100) * box.height,
+                ((b.x - a.x) / 100) * box.w,
+                ((b.y - a.y) / 100) * box.h,
               ),
           );
         }
@@ -262,8 +381,11 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
       }
 
       function drawShip(progress: number) {
-        const box = frame.getBoundingClientRect();
-        if (box.width === 0) return;
+        // Layout size, not the bounding rect: the ship is a child of the frame
+        // and already inherits its zoom, so measuring the *scaled* box would
+        // apply the scale twice and fling the ship off the map.
+        const box = frameBox();
+        if (box.w === 0) return;
 
         const { cum, total } = metrics(box);
         const travelled = lengthAt(progress, cum);
@@ -281,8 +403,8 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         // Taking it from percentages points the bow at the wrong horizon.
         const angle =
           (Math.atan2(
-            (ahead.y - behind.y) * box.height,
-            (ahead.x - behind.x) * box.width,
+            (ahead.y - behind.y) * box.h,
+            (ahead.x - behind.x) * box.w,
           ) *
             180) /
           Math.PI;
@@ -296,12 +418,15 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         const heading = westbound ? angle - 180 : angle;
         const mirror = westbound ? " scale(-1, 1)" : "";
 
-        ship.style.transform = `translate(${(here.x / 100) * box.width}px, ${
-          (here.y / 100) * box.height
-        }px) translate(-50%, -50%) rotate(${heading}deg)${mirror}`;
+        ship.style.transform = `translate(${(here.x / 100) * box.w}px, ${
+          (here.y / 100) * box.h
+        }px) translate(-50%, -50%) rotate(${heading}deg)${mirror} scale(${1 / z})`;
 
-        sailed.style.strokeDasharray = String(total);
-        sailed.style.strokeDashoffset = String(total - travelled);
+        // The dashes are in device pixels --- `vector-effect: non-scaling-stroke`
+        // generates the stroke after every transform --- so the lengths have to
+        // carry the zoom that the geometry above deliberately does not.
+        sailed.style.strokeDasharray = String(total * z);
+        sailed.style.strokeDashoffset = String((total - travelled) * z);
       }
 
       function describeLag(day: number): string {
@@ -351,6 +476,19 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         const fromDay = day;
         const toDay = dayAt(index);
         const travel = travelTime(Math.abs(index - fromProgress));
+
+        // The camera moves on the ship's clock, so the two arrive together.
+        if (hasSelected) {
+          const target = ROUTE[STOP_AT[index]!]!;
+          frame.style.transitionDuration = `${Math.max(240, travel)}ms`;
+          centreOn(target.x, target.y, Math.max(z, AUTO_ZOOM));
+          clampView();
+          frame.style.transform = `translate(${tx}px, ${ty}px) scale(${z})`;
+          frame.style.setProperty("--z", String(z));
+          map.classList.toggle("is-zoomed", z > 1.001);
+          clay.setAttribute("patternTransform", `scale(${1 / z})`);
+        }
+        hasSelected = true;
         const dwell = dwellTime(Math.abs(toDay - fromDay));
         const started = performance.now();
 
@@ -431,6 +569,125 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
       // from the frame's current size each time.
       window.addEventListener("resize", () => drawShip(progress));
 
+      // ---------- zoom and pan ----------
+
+      document.querySelector("#zoom-in")!.addEventListener("click", () => {
+        zoomAbout(
+          map.getBoundingClientRect().left + map.clientWidth / 2,
+          map.getBoundingClientRect().top + map.clientHeight / 2,
+          clampZoom(z * 1.5),
+        );
+      });
+
+      document.querySelector("#zoom-out")!.addEventListener("click", () => {
+        zoomAbout(
+          map.getBoundingClientRect().left + map.clientWidth / 2,
+          map.getBoundingClientRect().top + map.clientHeight / 2,
+          clampZoom(z / 1.5),
+        );
+      });
+
+      document.querySelector("#zoom-fit")!.addEventListener("click", fitMap);
+
+      map.addEventListener(
+        "wheel",
+        (event) => {
+          event.preventDefault();
+          // Trackpad pinches arrive as ctrl+wheel with small deltas; a mouse
+          // wheel arrives in coarse notches. One exponential handles both.
+          const factor = Math.exp(-event.deltaY * (event.ctrlKey ? 0.01 : 0.002));
+          zoomAbout(event.clientX, event.clientY, clampZoom(z * factor));
+        },
+        { passive: false },
+      );
+
+      // Pointer drag to pan, and two pointers to pinch. A drag only counts once
+      // it passes a few pixels, so pressing a marker still selects it.
+      const DRAG_SLOP = 7;
+      const active = new Map<number, { x: number; y: number }>();
+      let panning = false;
+      let moved = 0;
+      let pinchStart = 0;
+      let pinchZoom = 1;
+
+      const spread = () => {
+        const [a, b] = [...active.values()];
+        return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
+      };
+
+      map.addEventListener("pointerdown", (event) => {
+        // Reset on every press, not only when a pan starts: a stale distance
+        // from the last drag would swallow the next click on a marker.
+        moved = 0;
+        active.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        if (active.size === 2) {
+          pinchStart = spread();
+          pinchZoom = z;
+          panning = false;
+          return;
+        }
+        // At full extent on a phone the page still has to scroll, so a single
+        // finger is only taken over once there is something to pan.
+        if (active.size === 1 && (z > 1.001 || event.pointerType === "mouse")) {
+          panning = true;
+        }
+      });
+
+      map.addEventListener("pointermove", (event) => {
+        const previous = active.get(event.pointerId);
+        if (!previous) return;
+        const dx = event.clientX - previous.x;
+        const dy = event.clientY - previous.y;
+        active.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+        if (active.size === 2 && pinchStart > 0) {
+          const now = spread();
+          const [a, b] = [...active.values()];
+          if (!a || !b) return;
+          zoomAbout(
+            (a.x + b.x) / 2,
+            (a.y + b.y) / 2,
+            clampZoom((pinchZoom * now) / pinchStart),
+          );
+          return;
+        }
+
+        if (!panning) return;
+        moved += Math.abs(dx) + Math.abs(dy);
+        if (moved < DRAG_SLOP) return;
+
+        // Capture only once the press has become a drag. Capturing on
+        // pointerdown retargets the click that follows to the map, so pressing
+        // a marker stopped selecting it.
+        if (!map.hasPointerCapture(event.pointerId)) {
+          map.setPointerCapture(event.pointerId);
+        }
+        map.classList.add("is-panning");
+        tx += dx;
+        ty += dy;
+        applyView(false);
+      });
+
+      const endPointer = (event: PointerEvent) => {
+        active.delete(event.pointerId);
+        if (active.size < 2) pinchStart = 0;
+        if (active.size === 0) {
+          panning = false;
+          map.classList.remove("is-panning");
+        }
+      };
+      map.addEventListener("pointerup", endPointer);
+      map.addEventListener("pointercancel", endPointer);
+
+      // A marker press that turned into a drag should pan, not select.
+      markers.forEach((m) =>
+        m.addEventListener("click", (event) => {
+          if (moved >= DRAG_SLOP) event.stopImmediatePropagation();
+        }, true),
+      );
+
+      window.addEventListener("resize", () => applyView(false));
+
       timeline.addEventListener("input", () => show(timeline.valueAsNumber));
       markers.forEach((m, i) => m.addEventListener("click", () => show(i)));
       ticks.forEach((t, i) => t.addEventListener("click", () => show(i)));
@@ -447,6 +704,32 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
           Home: 0,
           End: STOPS.length - 1,
         };
+        if (e.key === "Escape" || e.key === "0") {
+          e.preventDefault();
+          fitMap();
+          return;
+        }
+        if (e.key === "+" || e.key === "=" || e.key === "-") {
+          e.preventDefault();
+          const box = map.getBoundingClientRect();
+          zoomAbout(
+            box.left + map.clientWidth / 2,
+            box.top + map.clientHeight / 2,
+            clampZoom(e.key === "-" ? z / 1.5 : z * 1.5),
+          );
+          return;
+        }
+        if (e.shiftKey && e.key.startsWith("Arrow")) {
+          e.preventDefault();
+          const step = 60;
+          if (e.key === "ArrowLeft") tx += step;
+          if (e.key === "ArrowRight") tx -= step;
+          if (e.key === "ArrowUp") ty += step;
+          if (e.key === "ArrowDown") ty -= step;
+          applyView(false);
+          return;
+        }
+
         const next = moves[e.key];
         if (next === undefined) return;
         e.preventDefault();
