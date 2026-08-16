@@ -749,6 +749,23 @@ html:not([data-stage="voyage"]) .marker.is-end .marker-name {
   display: block;
 }
 
+/* The ship touches Ithaca. One ring, in the nostos's own cool hue rather than
+   the clay the voyage uses for its arrivals, reusing the keyframe every other
+   arrival on this page already runs. It needs no script: the stage changing to
+   `arrived` is the arrival. */
+[data-stage="arrived"] .marker.is-end .marker-dot {
+  position: relative;
+}
+
+[data-stage="arrived"] .marker.is-end .marker-dot::after {
+  content: "";
+  position: absolute;
+  border: 1px solid var(--ghost);
+  border-radius: 50%;
+  inset: -2px;
+  animation: arrive 700ms ease-out 1;
+}
+
 /* One slow breath, not a blink: the only thing on the page asking to be
    pressed, saying so without behaving like a notification. */
 [data-stage="prologue"] .marker.is-start .marker-dot {
@@ -782,6 +799,13 @@ html:not([data-stage="voyage"]) {
     visibility 420ms;
 }
 
+/* The rail waits for the map to finish arriving before it rises, so the two
+   are a sequence rather than a pile. Only ever seen on the path that ran the
+   prologue: reaching the voyage any other way starts here already. */
+[data-stage="voyage"] .rail > * {
+  transition-delay: 780ms;
+}
+
 /* `visibility` again, for the same reason as the map controls: the rail holds
    a toggle and a link, and both stay on the tab order through a fade. It is
    in the transition list so it flips at the right end of the rise --- visible
@@ -791,6 +815,30 @@ html:not([data-stage="voyage"]) .rail > * {
   opacity: 0;
   translate: 0 1.4rem;
   pointer-events: none;
+}
+
+/* The twelve stops the prologue withheld, rising into place in the order they
+   were reached. The delay is the marker's own index, published by the template
+   as `--i`, so the stagger needs no timer per marker --- `backwards` holds each
+   one at the start of the keyframe until its turn comes.
+
+   Troy and Ithaca are excluded: they have been on screen since the first frame
+   and re-animating them would say they had only just arrived. */
+[data-stage="voyage"] .markers.is-arriving .marker:not(.is-start, .is-end) {
+  animation: marker-in 460ms cubic-bezier(0.33, 1, 0.68, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+@keyframes marker-in {
+  from {
+    opacity: 0;
+    translate: -50% -24%;
+  }
+
+  to {
+    opacity: 1;
+    translate: -50% -50%;
+  }
 }
 
 /* Two readings of one counter. Only one is ever in the document's flow. */
@@ -1227,6 +1275,13 @@ html:not([data-stage="voyage"]) .counter.is-actual {
 .route-nostos polyline {
   stroke: var(--ghost);
   opacity: 0.5;
+}
+
+/* Under the markers, not over them. It moors on top of Ithaca and stays there
+   for the rest of the visit, and the stop it is sitting on still has to be
+   readable and pressable underneath it. */
+.ship-nostos {
+  z-index: 1;
 }
 
 /* Solid while it is sailing, a shade once it moors --- which is the only

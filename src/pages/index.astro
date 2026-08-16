@@ -166,7 +166,7 @@ const coastline = roughen(rawCoastline);
                   voyage; the solid one is drawn in behind the ship by pulling
                   its dash offset back, so what has been sailed and what has
                   not are different marks rather than different colours. */}
-              <polyline points={route} />
+              <polyline id="route-whole" points={route} />
               <polyline id="route-sailed" points={route} />
             </svg>
 
@@ -229,7 +229,7 @@ const coastline = roughen(rawCoastline);
                     data-index={m.index}
                     aria-pressed="false"
                     aria-label={`Stop ${m.index + 1}, ${m.name}`}
-                    style={`left:${m.marker.x}%;top:${m.marker.y}%`}
+                    style={`left:${m.marker.x}%;top:${m.marker.y}%;--i:${m.index}`}
                   >
                     <span class="marker-dot">{m.index + 1}</span>
                     <span class="marker-name">{m.name}</span>
@@ -380,11 +380,11 @@ const coastline = roughen(rawCoastline);
       const frame = document.querySelector<HTMLElement>(".map-frame")!;
       const ship = document.querySelector<SVGSVGElement>("#ship")!;
       const sailed = document.querySelector<SVGPolylineElement>("#route-sailed")!;
-      const unsailed = [
-        ...document.querySelectorAll<SVGPolylineElement>(".route polyline"),
-      ].find((line) => line.id !== "route-sailed")!;
+      const unsailed =
+        document.querySelector<SVGPolylineElement>("#route-whole")!;
       const panel = document.querySelector<HTMLElement>("#scene")!;
       const map = document.querySelector<HTMLElement>("#map")!;
+      const markerLayer = document.querySelector<HTMLElement>(".markers")!;
       const nostosShip = document.querySelector<SVGSVGElement>("#nostos-ship")!;
       const nostosLine =
         document.querySelector<SVGPolylineElement>("#nostos-line")!;
@@ -513,6 +513,9 @@ const coastline = roughen(rawCoastline);
 
       /** How much of the nostos has been sailed, 0 to 1. It only ever rises. */
       let nostosProgress = 0;
+
+      /** True while the voyage is being drawn onto the map for the first time. */
+      let revealing = false;
 
       // The first paint is the whole map on purpose. The page's argument is a
       // shape --- the lettered east against the empty west where every stop
@@ -677,10 +680,17 @@ const coastline = roughen(rawCoastline);
         // any vector-effect to arrange it.
         const unit = unitSize(box);
         sailed.style.strokeWidth = String(1.4 / unit);
-        sailed.style.strokeDasharray = String(ROUTE_LENGTH);
-        sailed.style.strokeDashoffset = String(ROUTE_LENGTH - travelled);
         unsailed.style.strokeWidth = String(1.5 / unit);
-        unsailed.style.strokeDasharray = `${4 / unit} ${6 / unit}`;
+
+        // The reveal owns both dash patterns while it runs: it is drawing the
+        // whole voyage out of Troy, and the voyage's own idea of how much has
+        // been sailed is zero. Letting this write through would erase the
+        // stroke a frame after it was drawn.
+        if (!revealing) {
+          sailed.style.strokeDasharray = String(ROUTE_LENGTH);
+          sailed.style.strokeDashoffset = String(ROUTE_LENGTH - travelled);
+          unsailed.style.strokeDasharray = `${4 / unit} ${6 / unit}`;
+        }
 
         // The rail's filled track is the same fact as the drawn-in route, so
         // it is driven from the same number rather than from the input's value.
@@ -1421,20 +1431,123 @@ const coastline = roughen(rawCoastline);
       /** The ship touches Ithaca. Let it land before anything else happens. */
       function moor() {
         setStage("arrived");
-        window.setTimeout(enterVoyage, MOORING_MS);
+        // The counter swaps to its settled reading and the hull drains to a
+        // shade, both on CSS transitions the stage change starts. Nothing else
+        // happens for a beat: an arrival that is immediately talked over is
+        // not an arrival.
+        window.setTimeout(reveal, MOORING_MS);
       }
 
-      function enterVoyage() {
-        cancelAnimationFrame(crossingFrame);
-        nostosProgress = 1;
-        drawNostos(1);
-        setStage("voyage");
-        unlock();
+      function remember() {
         try {
           sessionStorage.setItem("nostos", "seen");
         } catch {
           // Not worth a word to the visitor: the cost is watching it again.
         }
+      }
+
+      /**
+       * The voyage arrives.
+       *
+       * Three things happen at once and none of them is a crossfade. The
+       * camera pulls back until the whole basin is on screen, which is when
+       * the blank western half opens up under the lettering. The course draws
+       * itself out of Troy across that blank --- its own length is the
+       * argument, so it is drawn rather than faded in, and drawn as one bright
+       * stroke that hands over to the chart's dashes once it has arrived. And
+       * the twelve stops the prologue withheld rise into place behind it, in
+       * the order they were reached.
+       */
+      const REVEAL_CAMERA_MS = 900;
+      const REVEAL_ROUTE_MS = 1150;
+      const REVEAL_STAGGER_MS = 45;
+      const REVEAL_HANDOVER_MS = 340;
+
+      function reveal() {
+        cancelAnimationFrame(crossingFrame);
+        nostosProgress = 1;
+        drawNostos(1);
+        setStage("voyage");
+        unlock();
+        remember();
+
+        // The panel already holds Troy from the prologue; this re-runs its
+        // entrance so it arrives with everything else rather than being found
+        // already there.
+        current = -1;
+        showText(0);
+
+        if (stillness.matches) {
+          markerLayer.classList.remove("is-arriving");
+          fitMap();
+          return;
+        }
+
+        z = 1;
+        tx = 0;
+        ty = 0;
+        applyView(REVEAL_CAMERA_MS);
+
+        markerLayer.classList.add("is-arriving");
+        window.setTimeout(
+          () => markerLayer.classList.remove("is-arriving"),
+          STOPS.length * REVEAL_STAGGER_MS + 600,
+        );
+
+        drawRoute();
+      }
+
+      /** The whole course, drawn out of Troy as one stroke. */
+      function drawRoute() {
+        revealing = true;
+        unsailed.style.opacity = "0";
+        sailed.style.opacity = "0.9";
+        sailed.style.strokeDasharray = String(ROUTE_LENGTH);
+
+        const started = performance.now();
+        const step = (now: number) => {
+          const t = Math.min(1, (now - started) / REVEAL_ROUTE_MS);
+          sailed.style.strokeDashoffset = String(ROUTE_LENGTH * (1 - easeOut(t)));
+          if (t < 1) requestAnimationFrame(step);
+          else handOver();
+        };
+        requestAnimationFrame(step);
+      }
+
+      /**
+       * The bright stroke becomes the chart.
+       *
+       * It fades out exactly as the dashed line fades in, and underneath that
+       * swap the sailed line is reset to nothing --- which is the truth of the
+       * voyage at this moment. Odysseus is still at Troy on day zero, and the
+       * shape that has just been drawn is where he is going, not where he has
+       * been.
+       */
+      function handOver() {
+        sailed.style.transition = `opacity ${REVEAL_HANDOVER_MS}ms ease`;
+        unsailed.style.transition = `opacity ${REVEAL_HANDOVER_MS}ms ease`;
+        sailed.style.opacity = "0";
+        unsailed.style.opacity = "";
+
+        window.setTimeout(() => {
+          revealing = false;
+          sailed.style.transition = "";
+          unsailed.style.transition = "";
+          sailed.style.opacity = "";
+          drawShip(progress);
+        }, REVEAL_HANDOVER_MS);
+      }
+
+      /** Straight to the voyage, with none of the ceremony. */
+      function enterVoyage() {
+        cancelAnimationFrame(crossingFrame);
+        revealing = false;
+        nostosProgress = 1;
+        drawNostos(1);
+        setStage("voyage");
+        unlock();
+        remember();
+        markerLayer.classList.remove("is-arriving");
         fitMap();
         current = -1;
         show(0);

@@ -192,6 +192,55 @@ describe("assignment 1: holds up on the keyboard", () => {
       .toHaveLength(0);
   });
 
+  // The tests above ask whether a control can be reached by tab. They cannot
+  // ask whether it can be *seen*, because they read static HTML and know
+  // nothing about the stylesheet --- and that gap is not hypothetical. The
+  // prologue hides most of the page, and when it hid the zoom controls and the
+  // rail with `opacity: 0` alone, every test here stayed green while three
+  // invisible buttons sat in the tab order with the focus ring on them.
+  //
+  // So the rule is asserted where it can be: anything the prologue hides that
+  // can hold a control has to be hidden with `visibility` or `display`, never
+  // with opacity on its own.
+  const HIDDEN_BEFORE_VOYAGE = [".map-controls", ".rail > *", ".marker"];
+
+  // These run against the built stylesheet, which is minified: quotes are
+  // dropped from attribute values and the space around a combinator goes. Both
+  // sides are put through the same squeeze so the test is written the way the
+  // source is and still matches what ships.
+  const squeeze = (text: string) =>
+    text
+      .replace(/\s+/g, " ")
+      .replace(/\s*([>{}])\s*/g, "$1")
+      .replace(/"/g, "");
+
+  it("hides controls in a way that takes them off the tab order", () => {
+    const css = squeeze(
+      files
+        .filter((path) => path.endsWith(".css"))
+        .map((path) => readFileSync(path, "utf8"))
+        .join(""),
+    );
+
+    for (const selector of HIDDEN_BEFORE_VOYAGE) {
+      const escaped = squeeze(
+        `html:not([data-stage="voyage"]) ${selector}`,
+      ).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const rule = new RegExp(`${escaped}\\{([^}]*)\\}`).exec(css);
+
+      expect(
+        rule,
+        `nothing hides ${selector} before the voyage --- if that is deliberate, take it off this list`,
+      ).not.toBeNull();
+
+      const body = rule![1]!;
+      expect(
+        /visibility: ?hidden|display: ?none/.test(body),
+        `${selector} is hidden with "${body.trim()}" --- opacity alone leaves its controls focusable but invisible`,
+      ).toBe(true);
+    }
+  });
+
   it("keeps the region that changes announced", () => {
     const live = pages.some(({ doc }) =>
       doc.querySelector(`${DISPLAY}[aria-live]`),
