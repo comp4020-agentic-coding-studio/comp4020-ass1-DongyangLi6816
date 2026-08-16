@@ -46,7 +46,7 @@
   --mono: ui-monospace, "SF Mono", "Menlo", monospace;
   --thumb: 14px;
   --topbar-h: 5rem;
-  --rail-h: 12.4rem;
+  --rail-h: 10.8rem;
   --band-h: 14px;
   --panel-w: 23rem;
 
@@ -956,11 +956,6 @@ body::after {
   color: var(--figure);
 }
 
-.rail-hint {
-  margin: 0.45rem 0 0;
-  font-size: 0.68rem;
-  color: var(--figure-dim);
-}
 
 /* ---------- phone ---------- */
 
@@ -1048,9 +1043,6 @@ body::after {
     height: 0.55rem;
   }
 
-  .rail-hint {
-    margin-top: 0.7rem;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

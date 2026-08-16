@@ -5,8 +5,6 @@ import coastline from "../components/coastline.svg?raw";
 import {
   BENCHMARKS,
   STOPS,
-  STOPS_WITHOUT_DURATION,
-  TOTAL_STATED_DAYS,
   dayAt,
   projectMarker,
   routePoints,
@@ -192,7 +190,6 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
           max={STOPS.length - 1}
           step="any"
           value="0"
-          aria-describedby="rail-hint"
         />
         <div class="rail-ticks" aria-hidden="true">
           {
@@ -208,10 +205,6 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
             <span class="scale-dot"></span>
             <span id="scale-label">Story order</span>
           </button>
-        </p>
-
-        <p class="rail-hint" id="rail-hint">
-          {`Drag the timeline, or press a stop on the map. ${TOTAL_STATED_DAYS.toLocaleString()} days are all the poem actually counts — ${STOPS_WITHOUT_DURATION} of these fourteen stops carry no stated duration at all.`}
         </p>
       </div>
     </main>
