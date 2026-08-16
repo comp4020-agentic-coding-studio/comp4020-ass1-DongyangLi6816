@@ -1,0 +1,168 @@
+---
+/**
+ * The sea layer: a wind rose, the lines it throws across the water, and a few
+ * dolphins.
+ *
+ * Earlier versions of this file chased what a real chart or a real pot does ---
+ * a repeating wave fill, then dolphins, then the full portolan construction of
+ * sixteen nodes on a hidden circle with every chord between them drawn. Each
+ * was more authentic than the last and each made the map busier. The map
+ * already carries a coastline, a route, fourteen markers and fifteen place
+ * names; it could not also carry a lattice.
+ *
+ * So the lattice went and the rose stayed: it says "chart" in one gesture and
+ * leaves the sea otherwise open, which is what the western basin has to be for
+ * the blank there to read. The dolphins stayed with it --- eight marks, not a
+ * shoal --- because they are the thing that says the empty part is water.
+ *
+ * Rendered before the coastline, so the land covers whatever crosses it.
+ */
+
+/**
+ * The dolphin, traced off the object.
+ *
+ * Three hand-drawn attempts were all wrong in the same direction --- too deep
+ * in the body, a tall triangular dorsal, a forked tail --- so this one is not
+ * drawn at all. It is a machine trace of one of the dolphins on Exekias's
+ * Dionysus cup (Munich, Staatliche Antikensammlungen 2044, c. 530 BC):
+ * threshold the photograph, close the painter's incised lines with a
+ * morphological closing so they stop cutting the body into fragments, follow
+ * the outer contour, simplify to 44 points, then level the animal on its own
+ * principal axis. scripts/trace-dolphin.py does it and is not part of the
+ * build; it reproduces this path exactly.
+ *
+ * What no amount of drawing had got right: the tail is a single flaring
+ * trumpet with a concave edge, not two forked flukes, and the dorsal is a low
+ * ridge that merges into the back rather than a fin standing off it.
+ *
+ * A finished stock silhouette was tried after this and rejected --- correct
+ * anatomy, wrong register: it reads as a cartoon against lettering and a
+ * coastline. A rough trace of the real thing sits in the page better than a
+ * clean drawing of the wrong thing.
+ *
+ * Source photograph: Wikimedia Commons, "Exekias Dionysos Staatliche
+ * Antikensammlungen 2044.jpg", CC BY 2.5. The vase itself is 2,500 years out
+ * of copyright; the trace records its outline, not the photograph.
+ *
+ * 200 units long, facing left. The cup uses one dolphin at many rotations
+ * rather than many different dolphins, so rotation is all that varies here too.
+ */
+const DOLPHIN =
+  "M2.0,28.8 L0.0,29.9 L0.1,31.6 L3.7,30.4 L8.9,31.8 L17.3,37.4 L24.3,48.2 L25.7,61.3 L22.1,68.6 L25.4,66.7 L26.6,64.3 L29.3,46.2 L33.2,44.0 L51.0,41.6 L75.0,41.0 L97.8,42.8 L145.5,50.3 L166.8,55.5 L170.7,53.3 L174.6,57.1 L181.7,57.4 L185.0,55.5 L191.3,58.9 L188.4,55.4 L189.4,49.6 L195.8,48.5 L200.0,51.3 L190.5,39.3 L165.2,20.8 L147.8,5.5 L143.7,0.0 L142.4,0.7 L142.4,6.8 L146.2,13.4 L144.3,16.2 L116.8,13.7 L85.2,17.8 L54.8,29.9 L44.3,35.9 L41.8,39.1 L35.7,39.1 L28.4,41.5 L12.9,31.2 L5.3,28.6 Z";
+
+/**
+ * Scattered across open water. Anything that misses is hidden by the land.
+ *
+ * Scale is the whole game: the path is 200 units long against a 1600-unit map,
+ * so anything past about 0.3 stops reading as a mark on the water and starts
+ * reading as an animal sitting on the chart.
+ */
+const DOLPHINS = [
+  { x: 300, y: 500, s: 0.3, r: -12, flip: false },
+  { x: 590, y: 700, s: 0.26, r: 8, flip: true },
+  { x: 430, y: 395, s: 0.24, r: 24, flip: true },
+  { x: 880, y: 235, s: 0.22, r: -18, flip: false },
+  { x: 940, y: 730, s: 0.28, r: 15, flip: false },
+  { x: 1390, y: 590, s: 0.24, r: -26, flip: true },
+  { x: 150, y: 720, s: 0.26, r: 6, flip: false },
+  { x: 1505, y: 250, s: 0.22, r: 32, flip: false },
+];
+
+/** Open water south of Crete, clear of every stop on the voyage. */
+const HUB = { x: 1120, y: 715 };
+
+/** Long enough to leave the frame from anywhere in it; the root svg clips. */
+const REACH = 2400;
+
+function winds(keep: (wind: number) => boolean): string {
+  return Array.from({ length: 32 }, (_, w) => w)
+    .filter(keep)
+    .map((w) => {
+      const a = (w * Math.PI * 2) / 32;
+      const x = (HUB.x + Math.cos(a) * REACH).toFixed(1);
+      const y = (HUB.y + Math.sin(a) * REACH).toFixed(1);
+      return `M${HUB.x},${HUB.y}L${x},${y}`;
+    })
+    .join("");
+}
+
+// Every fourth wind of the thirty-two is one of the eight principals, and those
+// were always inked heavier than the half- and quarter-winds.
+const PRINCIPAL = winds((w) => w % 4 === 0);
+const LESSER = winds((w) => w % 4 !== 0);
+---
+
+<svg
+  class="seamarks"
+  viewBox="0 0 1600 953.8"
+  aria-hidden="true"
+  focusable="false"
+>
+  <defs>
+    {/* A painter's incision wanders; a vector path does not. A little
+        turbulence displaces the coastline just enough that the edge reads as
+        cut by hand rather than plotted. */}
+    <filter id="incised" x="-2%" y="-2%" width="104%" height="104%">
+      <feTurbulence
+        type="fractalNoise"
+        baseFrequency="0.02"
+        numOctaves="2"
+        seed="7"
+        result="noise"
+      />
+      <feDisplacementMap
+        in="SourceGraphic"
+        in2="noise"
+        scale="3"
+        xChannelSelector="R"
+        yChannelSelector="G"
+      />
+    </filter>
+
+    {/* The land carries no pattern --- chart-makers left interiors bare --- but
+        it is a fired surface, not a printed one. A sparse two-tone stipple
+        gives it the tooth of clay without becoming a motif. */}
+    <pattern
+      id="clay-ground"
+      width="23"
+      height="19"
+      patternUnits="userSpaceOnUse"
+    >
+      <rect width="23" height="19" fill="#241a11"></rect>
+      <circle cx="3.1" cy="2.4" r="0.8" fill="#33251a"></circle>
+      <circle cx="14.7" cy="5.2" r="0.6" fill="#1b1208"></circle>
+      <circle cx="8.3" cy="9.9" r="0.9" fill="#2e2216"></circle>
+      <circle cx="19.4" cy="12.6" r="0.7" fill="#1d1409"></circle>
+      <circle cx="5.6" cy="16.1" r="0.6" fill="#31241a"></circle>
+      <circle cx="17.2" cy="17.4" r="0.5" fill="#2a1f14"></circle>
+      <circle cx="11.9" cy="1.3" r="0.5" fill="#1c1309"></circle>
+      <circle cx="21.6" cy="7.8" r="0.4" fill="#2f2317"></circle>
+    </pattern>
+  </defs>
+
+  <path class="rhumbs-lesser" d={LESSER}></path>
+  <path class="rhumbs-principal" d={PRINCIPAL}></path>
+
+  <g class="rose" transform={`translate(${HUB.x} ${HUB.y})`}>
+    <circle r="34"></circle>
+    <path
+      class="rose-major"
+      d="M0 -46 L5 -6 L0 0 L-5 -6 Z M0 46 L-5 6 L0 0 L5 6 Z M-46 0 L-6 -5 L0 0 L-6 5 Z M46 0 L6 5 L0 0 L6 -5 Z"
+    ></path>
+    <path
+      class="rose-minor"
+      d="M24 -24 L4 -4 L0 0 L8 -8 Z M-24 24 L-4 4 L0 0 L-8 8 Z M-24 -24 L-4 -4 L0 0 L-8 -8 Z M24 24 L4 4 L0 0 L8 8 Z"
+    ></path>
+  </g>
+
+  <g class="dolphins">
+    {
+      DOLPHINS.map((f) => (
+        <path
+          d={DOLPHIN}
+          transform={`translate(${f.x} ${f.y}) rotate(${f.r}) scale(${f.flip ? -f.s : f.s} ${f.s})`}
+        />
+      ))
+    }
+  </g>
+</svg>

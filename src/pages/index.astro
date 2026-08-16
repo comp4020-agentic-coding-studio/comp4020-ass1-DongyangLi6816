@@ -1,4 +1,6 @@
 ---
+import Placenames from "../components/placenames.astro";
+import Seamarks from "../components/seamarks.astro";
 import coastline from "../components/coastline.svg?raw";
 import {
   BENCHMARKS,
@@ -68,7 +70,11 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
               letterbox inside a differently-shaped parent and every marker
               drifts off its coastline. */}
           <div class="map-frame">
+            {/* Before the coastline, so the land draws over it. */}
+            <Seamarks />
             <Fragment set:html={coastline} />
+            {/* After the land, so the names sit on it as they do on a chart. */}
+            <Placenames />
             <svg
               class="route"
               viewBox="0 0 100 100"

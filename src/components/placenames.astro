@@ -1,0 +1,115 @@
+---
+/**
+ * The world Homer could name.
+ *
+ * Every label here is a place the Odyssey actually names. None is invented and
+ * none is a later Roman or modern name, so the density of the lettering is a
+ * fact about the poem rather than a decoration: Homer's geography is dense and
+ * confident around the Aegean and the Greek mainland, and it stops. Past Cape
+ * Malea, as the Wikipedia survey of the poem's geography puts it, "he leaves
+ * the sphere of Geography and enters Wonderland" --- W. B. Stanford calls books
+ * 9-12 "a wonderland, which we shall look in vain for on the map", and Tim
+ * Severin notes there are "very few identifiable references to places to the
+ * west".
+ *
+ * Which is why nothing is drawn in the western basin. That emptiness is where
+ * all fourteen stops of this voyage sit. It is the argument of the page in one
+ * glance, and it only works if the blank stays blank --- so do not fill it.
+ *
+ * Rendered after the coastline and before the markers: names sit on top of the
+ * land the way they do on a chart, and under the thing the visitor operates.
+ */
+import { FRAME, project } from "../data/voyage.ts";
+
+interface Place {
+  name: string;
+  lon: number;
+  lat: number;
+  /** Point size in map units. Regions are set larger than towns. */
+  size?: number;
+  /** Egypt sits off the east edge of this frame, so its label runs off it. */
+  anchor?: "end";
+}
+
+// Positions are nudged off the true site where a marker or another label would
+// sit on top --- these are chart lettering, not data points. The Hellespont and
+// Mycenae came out entirely: that corner already carries Troy and Ismarus, and
+// a name the visitor cannot read is worse than a name that is not there.
+const PLACES: Place[] = [
+  { name: "Thrēkē", lon: 24.6, lat: 41.8, size: 15 },
+  { name: "Lēmnos", lon: 25.2, lat: 39.75 },
+  { name: "Lesbos", lon: 26.4, lat: 39.1 },
+  { name: "Olympos", lon: 22.3, lat: 40.2 },
+  { name: "Dōdōnē", lon: 21.25, lat: 39.95 },
+  { name: "Euboia", lon: 23.95, lat: 38.7 },
+  { name: "Athēnai", lon: 23.75, lat: 38 },
+  { name: "Ēlis", lon: 21.45, lat: 38 },
+  { name: "Argos", lon: 22.75, lat: 37.55 },
+  { name: "Lakedaimōn", lon: 22.6, lat: 36.95 },
+  { name: "Pylos", lon: 21.4, lat: 36.6 },
+  { name: "Zakynthos", lon: 20.5, lat: 37.4 },
+  { name: "Krētē", lon: 24.9, lat: 35.15, size: 15 },
+  { name: "Libyē", lon: 20.5, lat: 31.2, size: 15 },
+  { name: "Aigyptos", lon: 30.35, lat: 31.1, size: 15, anchor: "end" },
+];
+
+/** The coastline's own coordinate space, so the two layers agree exactly. */
+const W = 1600;
+const H = 953.8;
+
+const labels = PLACES.map((p) => {
+  const pos = project(p);
+  return { ...p, x: (pos.x / 100) * W, y: (pos.y / 100) * H };
+});
+
+// Cape Malea is where the poem's real geography runs out: the north wind there
+// blows the fleet nine days off course and it never sees a nameable coast
+// again. Drawn as a single tick, not a label --- it is a threshold, not a town.
+const malea = project({ lon: 23.2, lat: 36.43 });
+const maleaPos = { x: (malea.x / 100) * W, y: (malea.y / 100) * H };
+
+// Only used to prove the labels are inside the frame this component assumes.
+const outside = PLACES.filter(
+  (p) =>
+    p.lon < FRAME.lonMin ||
+    p.lon > FRAME.lonMax ||
+    p.lat < FRAME.latMin ||
+    p.lat > FRAME.latMax,
+);
+if (outside.length > 0) {
+  throw new Error(
+    `place names outside the map frame: ${outside.map((p) => p.name).join(", ")}`,
+  );
+}
+---
+
+<svg
+  class="placenames"
+  viewBox={`0 0 ${W} ${H}`}
+  aria-hidden="true"
+  focusable="false"
+>
+  <g class="malea" transform={`translate(${maleaPos.x} ${maleaPos.y})`}>
+    <path d="M0 -9 L0 9"></path>
+    <text y="22">Cape Malea</text>
+  </g>
+
+  {
+    labels.map((p) => (
+      <text
+        x={p.x}
+        y={p.y}
+        style={[
+          p.size ? `font-size:${p.size}px` : "",
+          // Inline, not a presentation attribute: the stylesheet sets
+          // text-anchor for every label and CSS beats presentation attributes.
+          p.anchor ? `text-anchor:${p.anchor}` : "",
+        ]
+          .filter(Boolean)
+          .join(";")}
+      >
+        {p.name}
+      </text>
+    ))
+  }
+</svg>
