@@ -46,7 +46,7 @@
   --mono: ui-monospace, "SF Mono", "Menlo", monospace;
   --thumb: 14px;
   --topbar-h: 5rem;
-  --rail-h: 13rem;
+  --rail-h: 12.4rem;
   --band-h: 14px;
   --panel-w: 23rem;
 
@@ -822,10 +822,6 @@ body::after {
   border-color: var(--clay-bright);
 }
 
-.scale-note {
-  color: var(--figure-dim);
-  font-size: 0.68rem;
-}
 
 /* The thumb is styled rather than left native because its width sets the axis
    everything else on the rail is measured against. A native thumb of unknown

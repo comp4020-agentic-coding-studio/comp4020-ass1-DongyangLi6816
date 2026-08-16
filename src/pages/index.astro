@@ -208,9 +208,6 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
             <span class="scale-dot"></span>
             <span id="scale-label">Story order</span>
           </button>
-          <span class="scale-note" id="scale-note">
-            Fourteen stops at equal width, the way the voyage is retold.
-          </span>
         </p>
 
         <p class="rail-hint" id="rail-hint">
@@ -782,7 +779,6 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
       const leaderPath = document.querySelector<SVGPathElement>("#leader-path")!;
       const scaleToggle = document.querySelector<HTMLButtonElement>("#scale-toggle")!;
       const scaleLabel = document.querySelector<HTMLElement>("#scale-label")!;
-      const scaleNote = document.querySelector<HTMLElement>("#scale-note")!;
 
       const SPANS = STOPS.map((_, i) => calendarSpan(i));
       const OGYGIA = STOPS.findIndex((stop) => stop.id === "ogygia");
@@ -835,14 +831,6 @@ const diomedes = BENCHMARKS.find((b) => b.id === "diomedes")!;
         const showsCalendar = mixTarget > 0.5;
         scaleToggle.setAttribute("aria-pressed", String(showsCalendar));
         scaleLabel.textContent = showsCalendar ? "True calendar" : "Story order";
-        // The lane needs saying out loud in both modes. Nothing else on the
-        // page explains that a filled bar means the poem states a length, and
-        // a visitor has no reason to guess it.
-        scaleNote.textContent = showsCalendar
-          ? `Each stay as wide as the days the poem states — Ogygia is ${Math.round(
-              (SPANS[OGYGIA]!.end - SPANS[OGYGIA]!.start) * 100,
-            )} per cent of it, and eight stops have no width at all.`
-          : "Fourteen stops at equal width, the way the voyage is retold.";
 
         if (!animated || stillness.matches) {
           mix = mixTarget;
