@@ -6,12 +6,11 @@ decision landed.
 ## What I built
 
 *Ten Years Late* is a map of the Odyssey drawn to the poem's own arithmetic.
-Fourteen stops, a ship that sails between them, and two counters: Diomedes
-moored at home on day four, Odysseus on whatever day he has reached. Of the
-3,034 days the poem counts, 2,576 are Calypso's island — the part nobody
-retells — and eight stops carry no stated duration at all. The rail draws the
-voyage twice, as it is told and as it is counted, so you can watch the two come
-apart.
+It opens with two dots and one control: send a ship from Troy and it moors at
+Ithaca on day seven. Only then does the real voyage draw itself across the
+Mediterranean underneath it. Of the 3,034 days the poem counts, 2,576 are
+Calypso's island — the part nobody retells — and eight stops carry none. The
+rail draws it twice, as told and as counted, so the two come apart.
 
 ## The moments that mattered
 
