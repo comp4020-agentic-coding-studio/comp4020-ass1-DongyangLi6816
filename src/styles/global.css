@@ -510,6 +510,7 @@ body::after {
   width: 100%;
   height: 100%;
   pointer-events: none;
+  transition: opacity 220ms ease;
 }
 
 .route polyline {
@@ -540,6 +541,7 @@ body::after {
   overflow: visible;
   pointer-events: none;
   z-index: 2;
+  transition: opacity 220ms ease;
 }
 
 .ship path {
@@ -675,6 +677,23 @@ body::after {
 
    `html:not([data-stage="voyage"])` reads as "before the voyage arrives", and
    covers the three stages that come first without naming each one. */
+
+/* Before the script lands.
+
+   Nothing on these two layers is placed by the markup. A ship is put on its
+   course by transform and a course is drawn by dash offset, both from
+   measurements only the browser can take. Until the script has run they would
+   paint a hull in the frame's top-left corner, off any coast, and a route
+   drawn end to end --- the whole twenty years shown as already sailed on day
+   zero, and in the prologue the answer given away before the visitor has
+   sailed at all.
+
+   Only ever seen on a slow connection, which is the visitor least able to wait
+   it out, and one of the three conditions the brief names. */
+html:not([data-ready]) .ship,
+html:not([data-ready]) .route {
+  opacity: 0;
+}
 
 html:not([data-stage="voyage"]) .route:not(.route-nostos),
 html:not([data-stage="voyage"]) .ship:not(.ship-nostos),
@@ -1326,6 +1345,7 @@ html:not([data-stage="voyage"]) .counter.is-actual {
   color: var(--ghost);
   font-size: 1.05rem;
 }
+
 
 /* ---------- phone ---------- */
 

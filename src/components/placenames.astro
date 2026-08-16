@@ -104,12 +104,17 @@ if (outside.length > 0) {
     <text y="22">Cape Malea</text>
   </g>
 
+  {/* A name that belongs closer in starts held. The script takes over on the
+      first view, but it cannot do that before it has run, and the first view
+      is the whole map --- so without this every label in the Aegean paints at
+      once for as long as the script takes to arrive. */}
   {
     labels.map((p) => (
       <text
         x={p.x}
         y={p.y}
         data-from={p.from ?? 1}
+        class:list={{ "is-held": (p.from ?? 1) > 1 }}
         style={[
           p.size ? `font-size:calc(${p.size}px / var(--z, 1))` : "",
           // Inline, not a presentation attribute: the stylesheet sets

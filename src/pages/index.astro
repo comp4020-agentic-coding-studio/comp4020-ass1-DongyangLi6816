@@ -1710,6 +1710,23 @@ const coastline = roughen(rawCoastline);
         applyView(0);
         drawNostos(1);
       }
+
+      /**
+       * Both hulls and both courses are now placed, so they can be shown.
+       *
+       * Everything on those two layers is positioned by measurement the
+       * browser has to take first: a ship by transform, a course by dash
+       * offset. None of it is in the markup. Until this line runs the page
+       * would paint a hull in the frame's top-left corner, off any coast, and
+       * a course drawn end to end --- on the prologue that is the answer given
+       * away before the visitor has sailed, and on the paths that skip it, the
+       * whole twenty years shown as already sailed on day zero.
+       *
+       * It is only visible on a slow connection, which is exactly the visitor
+       * least able to wait it out. The stylesheet holds both layers back until
+       * this attribute lands.
+       */
+      root.dataset.ready = "true";
     </script>
   </body>
 </html>
