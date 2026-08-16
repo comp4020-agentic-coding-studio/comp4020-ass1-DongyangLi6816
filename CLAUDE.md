@@ -56,6 +56,26 @@ matter live in the browser, not in the document describing it.
 - **If I remove a constraint, keep one of your own.** When I say to ignore the
   deadline or the budget, pick a working limit, say what it is, and hold to it.
 
+## Verifying a change to the page
+
+A check you chose is a check you chose to pass. When you tell me an interaction
+works, the claim is about what a visitor does --- not about the code path you
+had in mind while writing it. Every user-facing fault in this prototype so far
+was found by a person operating the page, and the worst of them was found after
+you had measured it and reported a number.
+
+- **Drive it the way a visitor does.** Real pointer events at real coordinates
+  on the rendered page. `element.click()` calls a handler; it does not exercise
+  the gesture, and the two can run entirely different code.
+- **Name the gesture you measured.** "I clicked the label column" and "I clicked
+  the rail" are different claims. If you did not test the one I described, say
+  that instead of reporting a number.
+- **Say what would falsify it, before you measure.** A number that could not
+  have come out wrong is not a verification.
+- **Taste is mine.** Whether something is too fast, too thin, or reads as the
+  wrong kind of object is not yours to settle by testing. Show me the state and
+  ask.
+
 ## The checks (your sensors)
 
 CI runs these on every push once your repo is public. GitHub's checks UI shows
