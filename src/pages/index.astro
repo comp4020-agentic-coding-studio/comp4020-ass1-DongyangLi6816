@@ -22,6 +22,13 @@ const markers = STOPS.map((stop, i) => ({
   day: dayAt(i),
 }));
 
+// Where the rail's one sign stands: at Ogygia, twelve stops in, which is the
+// stop that collapses the lane to the true calendar. Published as a fraction
+// of the rail's own axis so the stylesheet places it the way it places every
+// other lane, rather than keeping a second copy of the arithmetic.
+const cueIndex = STOPS.findIndex((stop) => stop.id === "ogygia");
+const cueAt = cueIndex / (STOPS.length - 1);
+
 // A curve through the stops and the sea marks between them, not a polyline:
 // a voyage drawn as straight hops reads as a network diagram, and several of
 // those hops went over land. The curve passes exactly through each stop, so
@@ -344,10 +351,40 @@ const coastline = roughen(rawCoastline);
             max={STOPS.length - 1}
             step="any"
             value="0"
+            aria-describedby="rail-cue"
           />
           <div class="rail-nodes" aria-hidden="true">
-            {markers.map((m) => <span class="rail-node" data-index={m.index} />)}
+            {
+              markers.map((m) => (
+                <span
+                  class:list={[
+                    "rail-node",
+                    // The bead the sign below is about. The mark it carries
+                    // belongs to the sign, not to the bead: it is drawn only
+                    // while the sign stands and goes out with it.
+                    { "is-cue": m.index === cueIndex },
+                  ]}
+                  data-index={m.index}
+                />
+              ))
+            }
           </div>
+
+          {/* A sign, not a second control. It stands at the stop it points to
+              and never touches a pointer: the rail underneath is what the
+              visitor operates, and a sign that could also be pressed would be
+              doing the rail's job.
+
+              It says the verb the page uses for this control and nothing
+              about what is waiting at that stop --- naming Calypso's seven
+              years here would spend the reveal before the visitor has sailed
+              to it. The stop's own name is already on the label below, so the
+              sign does not repeat it in ink; it says it only to a screen
+              reader, which has no label column to read. */}
+          <p class="rail-cue" id="rail-cue" style={`--at:${cueAt}`}>
+            Sail on<span class="visually-hidden"> to Ogygia, stop 12</span>
+            <span class="rail-cue-arrow" aria-hidden="true">›</span>
+          </p>
         </div>
 
         <div class="rail-ticks" aria-hidden="true">
@@ -416,6 +453,25 @@ const coastline = roughen(rawCoastline);
       const nostosLine =
         document.querySelector<SVGPolylineElement>("#nostos-line")!;
       const clay = document.querySelector<SVGPatternElement>("#clay-ground")!;
+      const railLine = document.querySelector<HTMLElement>(".rail-line")!;
+
+      /**
+       * The sign on the rail, up or spent.
+       *
+       * One state for both halves of it --- the words and the ring on the bead
+       * they point at --- because they are one object and a ring left standing
+       * over a sign that has gone would be marking nothing.
+       *
+       * The description on the slider goes with them. A sign is only a
+       * description of the control while it is standing there, and a screen
+       * reader hearing "sail on to Ogygia" from a rail already past Ogygia is
+       * being sent backwards.
+       */
+      function setCue(standing: boolean) {
+        railLine.classList.toggle("cue-spent", !standing);
+        if (standing) timeline.setAttribute("aria-describedby", "rail-cue");
+        else timeline.removeAttribute("aria-describedby");
+      }
 
       // Names arrive as the map is zoomed into them. Eleven of the fifteen sit
       // in the Aegean and the Peloponnese, which is more lettering than that
@@ -919,6 +975,13 @@ const coastline = roughen(rawCoastline);
         // that --- scrubbing past Ogygia used to slide straight through the one
         // moment the lane exists for.
         if (index === OGYGIA && mixTarget < 0.5) setScale(1);
+
+        // And the sign that sent them there is spent. Here rather than on the
+        // rail's own events, for the same reason the line above is: this is
+        // the one place every way of reaching a stop passes through --- a
+        // drag, a press on the rail, an arrow key, a press on the lane above,
+        // or the marker out on the map.
+        if (index >= OGYGIA) setCue(false);
 
         // Restart the entrance animation rather than queueing one, so dragging
         // the timeline fast never leaves the panel mid-fade.
@@ -1721,6 +1784,8 @@ const coastline = roughen(rawCoastline);
         setStage("prologue");
         lockToPrologue();
         setScale(0, false);
+        // The voyage is unsailed again, so the sign has its job back.
+        setCue(true);
 
         el("nostos-day").textContent = "Day 0";
         el("nostos-note").textContent = "at Troy";
