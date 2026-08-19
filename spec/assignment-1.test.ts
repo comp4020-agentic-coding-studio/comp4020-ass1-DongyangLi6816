@@ -40,6 +40,9 @@ const CONTROLS = [
   "#zoom-out",
   "#zoom-fit",
   "#scale-toggle",
+  // The phone's sheet handle. It carries the whole entry on a phone --- the
+  // stop's days are behind it --- so losing it loses the text, not a flourish.
+  "#sheet-handle",
   ".marker",
 ];
 

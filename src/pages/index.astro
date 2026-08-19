@@ -271,42 +271,65 @@ const coastline = roughen(rawCoastline);
         </div>
 
         <aside class="panel" id="scene" aria-live="polite">
-          {/* What the page is measuring, before it measures anything. It is in
-              the markup at load rather than announced, so the live region has
-              nothing to read out until the voyage actually arrives. */}
-          <div class="panel-prologue">
-            <p class="panel-meta">
-              <span class="panel-book">The voyage that should have happened</span>
-            </p>
-            <h2 class="panel-title">Nostos</h2>
-            <p class="panel-epithet">νόστος — the return home by sea</p>
-            <p class="panel-blurb">
-              Every Greek captain turned for home out of the same harbour on the
-              same day. Troy to Ithaca is about five hundred miles of open
-              water — a week under sail at the speed an ancient fleet was
-              actually recorded making.
-            </p>
-            <p class="panel-blurb">
-              So this is that week. Fair weather the whole way, a following
-              wind, and no god with a grievance: the Cyclops still has both his
-              eyes, and Poseidon has not yet been given the reason he was given.
-              Odysseus reaches Ithaca on day seven and the poem is four hundred
-              lines long.
-            </p>
-            <p class="panel-days">What happened instead comes afterwards.</p>
-          </div>
+          {/* Phone only, and the stylesheet takes it away above 52rem: on a
+              desktop the panel is a column of its own and there is nothing to
+              pull up. On a phone it is the top edge of a sheet that covers the
+              map when it is open, so it says what pressing it does rather than
+              naming itself. Outside the scroller below, because the edge you
+              grab must not move when the text inside scrolls. */}
+          <button
+            type="button"
+            class="sheet-handle"
+            id="sheet-handle"
+            aria-expanded="false"
+            aria-controls="sheet-scroll"
+          >
+            <span class="sheet-grip" aria-hidden="true"></span>
+            <span class="sheet-say" id="sheet-say">Hide the map</span>
+          </button>
 
-          <div class="panel-scene">
-            <p class="panel-meta">
-              <span class="panel-num" id="scene-num">1</span>
-              <span class="panel-book" id="scene-book">Book 9</span>
-            </p>
-            <h2 class="panel-title" id="scene-title">Troy</h2>
-            <p class="panel-epithet" id="scene-epithet">
-              Twelve ships turn for home
-            </p>
-            <p class="panel-blurb" id="scene-blurb"></p>
-            <p class="panel-days" id="scene-days"></p>
+          {/* The scroller. On a phone the sheet's own height is what the drag
+              changes, so the text has to scroll inside something that isn't
+              the thing being dragged --- otherwise a flick meant for the story
+              resizes the sheet instead. */}
+          <div class="sheet-scroll" id="sheet-scroll">
+            {/* What the page is measuring, before it measures anything. It is in
+                the markup at load rather than announced, so the live region has
+                nothing to read out until the voyage actually arrives. */}
+            <div class="panel-prologue">
+              <p class="panel-meta">
+                <span class="panel-book">The voyage that should have happened</span>
+              </p>
+              <h2 class="panel-title">Nostos</h2>
+              <p class="panel-epithet">νόστος — the return home by sea</p>
+              <p class="panel-blurb">
+                Every Greek captain turned for home out of the same harbour on the
+                same day. Troy to Ithaca is about five hundred miles of open
+                water — a week under sail at the speed an ancient fleet was
+                actually recorded making.
+              </p>
+              <p class="panel-blurb">
+                So this is that week. Fair weather the whole way, a following
+                wind, and no god with a grievance: the Cyclops still has both his
+                eyes, and Poseidon has not yet been given the reason he was given.
+                Odysseus reaches Ithaca on day seven and the poem is four hundred
+                lines long.
+              </p>
+              <p class="panel-days">What happened instead comes afterwards.</p>
+            </div>
+
+            <div class="panel-scene">
+              <p class="panel-meta">
+                <span class="panel-num" id="scene-num">1</span>
+                <span class="panel-book" id="scene-book">Book 9</span>
+              </p>
+              <h2 class="panel-title" id="scene-title">Troy</h2>
+              <p class="panel-epithet" id="scene-epithet">
+                Twelve ships turn for home
+              </p>
+              <p class="panel-blurb" id="scene-blurb"></p>
+              <p class="panel-days" id="scene-days"></p>
+            </div>
           </div>
         </aside>
       </div>
@@ -448,6 +471,9 @@ const coastline = roughen(rawCoastline);
         document.querySelector<SVGPolylineElement>("#route-whole")!;
       const panel = document.querySelector<HTMLElement>("#scene")!;
       const map = document.querySelector<HTMLElement>("#map")!;
+      // The stage and the sheet both live on the root element, and both are
+      // read before the prologue's own section runs.
+      const root = document.documentElement;
       const markerLayer = document.querySelector<HTMLElement>(".markers")!;
       const nostosShip = document.querySelector<SVGSVGElement>("#nostos-ship")!;
       const nostosLine =
@@ -983,6 +1009,16 @@ const coastline = roughen(rawCoastline);
         // or the marker out on the map.
         if (index >= OGYGIA) setCue(false);
 
+        // On a phone the sheet shuts on the way to a stop, because the map is
+        // what the rail is answering and a sheet standing open covers it. Here
+        // for the same reason as the two rules above: this is the one place
+        // every way of reaching a stop passes through. And the text goes back
+        // to its first line --- arriving at Ogygia halfway down Thrinacia's
+        // paragraph is landing in the middle of a sentence about somewhere
+        // else.
+        setSheet(false);
+        sheetScroll.scrollTop = 0;
+
         // Restart the entrance animation rather than queueing one, so dragging
         // the timeline fast never leaves the panel mid-fade.
         panel.classList.remove("is-entering");
@@ -1039,14 +1075,16 @@ const coastline = roughen(rawCoastline);
         animateTo(index);
       }
 
-      // On a phone the rail is sticky at the bottom of a scrolling page, so
-      // the panel's last line scrolls underneath it and is never reachable.
-      // The rail's height is not a constant --- the labels wrap, the toggle
-      // wraps --- so it publishes what it actually is and the panel reserves
-      // exactly that.
+      // On a phone the panel is a sheet that stands on top of the rail, and
+      // both of its heights --- shut and open --- are measured down from it.
+      // The rail's own height is not a constant, because the toggle and the
+      // credit wrap at some widths, so it publishes what it actually is. It
+      // reads zero during the prologue, where the rail is `display: none`,
+      // and that is right: there is nothing to scrub yet and the sheet can
+      // have the whole page.
       const rail = document.querySelector<HTMLElement>(".rail")!;
-      // Border box, not `contentRect`: the rail's padding is part of what
-      // covers the panel, and `contentRect` leaves it out.
+      // Border box, not `contentRect`: the rail's padding is part of the band
+      // the sheet has to stand on, and `contentRect` leaves it out.
       new ResizeObserver(() => {
         document.documentElement.style.setProperty(
           "--rail-space",
@@ -1347,6 +1385,9 @@ const coastline = roughen(rawCoastline);
         pressing = true;
         scrubbing = false;
         pressX = event.clientX;
+        // Anything that does not name itself is treated as a finger: the cost
+        // of being wrong that way is a tap that had to travel a little further
+        // to become a drag, and the other way it is the teleport.
         hasSelected = true;
       });
 
@@ -1478,6 +1519,246 @@ const coastline = roughen(rawCoastline);
         markers[clamped]!.focus();
       });
 
+      // ---------- the sheet ----------
+
+      /**
+       * On a phone the panel is a sheet standing on the rail: shut it fills
+       * the band under the map, open it rises over the map and the whole entry
+       * is readable. Above 52rem there is no sheet --- the panel is a column of
+       * its own and the handle is `display: none`, which also takes it off the
+       * tab order, so everything below is inert there.
+       */
+      const sheetHandle =
+        document.querySelector<HTMLButtonElement>("#sheet-handle")!;
+      const sheetSay = document.querySelector<HTMLElement>("#sheet-say")!;
+      const sheetScroll =
+        document.querySelector<HTMLElement>("#sheet-scroll")!;
+      const shell = panel.closest("main")!;
+
+      /**
+       * Whether the panel is a sheet at all.
+       *
+       * Read off the stylesheet rather than repeated from it: the sheet layout
+       * is the one that takes the panel out of flow, so asking the browser
+       * where the panel is keeps one breakpoint in one file. A second copy of
+       * `(width <= 52rem) and (height >= 40rem)` here would be a second thing
+       * to keep in step.
+       */
+      const isSheet = () => getComputedStyle(panel).position === "absolute";
+
+      /**
+       * How tall the sheet would have to be to show everything it holds, and
+       * the two heights it moves between.
+       *
+       * Open is the content's own height, not the whole page. Given the map's
+       * band back and a tighter header, most entries end well short of the
+       * screen at the marking viewport, and a sheet that always rose to full
+       * height left a paragraph sitting above two hundred pixels of nothing.
+       * It stops where the writing stops.
+       */
+      function sheetBounds() {
+        const border = panel.offsetHeight - panel.clientHeight;
+        const content =
+          sheetHandle.offsetHeight + sheetScroll.scrollHeight + border;
+        const most =
+          shell.getBoundingClientRect().height -
+          rail.getBoundingClientRect().height;
+        // The shut height is the stylesheet's, restated: everything below the
+        // map. Taken this way rather than measured, so it is right whether the
+        // sheet is currently shut or standing open.
+        const shut = most - map.getBoundingClientRect().height;
+        return { shut, open: Math.max(shut, Math.min(content, most)) };
+      }
+
+      /**
+       * Whether anything is actually cut off, measured rather than assumed.
+       *
+       * This is the only thing that says there is more to read, and it is the
+       * only thing that should: the handle says what pressing it does, and the
+       * fade says what is hidden. Wording the handle "read the whole stop"
+       * instead put both jobs on it and made it wrong twice --- on a tall
+       * phone, where the compression means most entries already end inside the
+       * shut sheet, and in the prologue, where there is no stop to read.
+       */
+      // Four pixels, not one: a scroller whose height lands on a fraction
+      // reports two or three pixels of overflow with nothing in them, and a
+      // fade drawn over that is announcing a line that does not exist.
+      const ROUNDING = 4;
+
+      // Showing or hiding the handle changes the scroller's height, a clamped
+      // scrollTop fires `scroll`, and `scroll` calls this again --- a short
+      // circle that can sit and oscillate on an entry near the threshold. The
+      // measurement is worth taking once per settle, not once per consequence
+      // of itself.
+      let marking = false;
+
+      function markSheetOverflow() {
+        if (marking) return;
+        marking = true;
+        queueMicrotask(() => {
+          marking = false;
+        });
+
+        sheetScroll.classList.toggle(
+          "has-more",
+          sheetScroll.scrollTop + sheetScroll.clientHeight <
+            sheetScroll.scrollHeight - ROUNDING,
+        );
+
+        // And whether there is a sheet to pull up at all.
+        //
+        // At the marking viewport every entry now ends inside the shut sheet,
+        // so opening one would move nothing: first it rose to full height and
+        // left the paragraph over two hundred pixels of dark, then --- capped
+        // to its content --- it stopped moving altogether, which is a handle
+        // that answers a press by doing nothing. Both were the same fact worn
+        // differently: at that height there is nothing to open into. So the
+        // handle is offered where it has work, and on a screen that cannot
+        // hold an entry it is on every stop.
+        //
+        // `|| open` because an open sheet fits by definition, and a handle
+        // that vanished the moment it worked would strand the map behind it.
+        const { shut, open } = sheetBounds();
+        panel.classList.toggle(
+          "can-open",
+          open > shut + ROUNDING || root.dataset.sheet === "open",
+        );
+      }
+
+      /**
+       * The one place the sheet changes state.
+       *
+       * Two words, and both are true in every state the page has: pressing it
+       * takes the map away or gives it back, whatever is written underneath.
+       */
+      function setSheet(open: boolean) {
+        root.dataset.sheet = open ? "open" : "shut";
+        sheetHandle.setAttribute("aria-expanded", String(open));
+        sheetSay.textContent = open ? "Show the map" : "Hide the map";
+
+        // The open height has to be measured, so it is written on rather than
+        // set in the stylesheet. Shut goes back to the stylesheet's own value:
+        // an inline height left behind would survive a rotation that changed
+        // what it should be. Guarded, because above 52rem the panel is a
+        // column and a height on it would be this script breaking the desktop.
+        if (!isSheet()) panel.style.height = "";
+        else if (open) panel.style.height = `${sheetBounds().open}px`;
+        else panel.style.height = "";
+
+        requestAnimationFrame(markSheetOverflow);
+      }
+
+      sheetScroll.addEventListener("scroll", markSheetOverflow, {
+        passive: true,
+      });
+      // A rotation changes what "as tall as its content" comes to, and it can
+      // take the sheet layout away entirely. Re-stating the current state is
+      // enough for both, since that is where the height is decided.
+      window.addEventListener("resize", () => {
+        setSheet(root.dataset.sheet === "open");
+      });
+      // The height animates, so what fits is only settled when it stops. One
+      // listener for the life of the page rather than one per state change:
+      // scrubbing the rail calls `setSheet` on every input event, and a
+      // once-listener per call that no transition ever fires would pile up.
+      panel.addEventListener("transitionend", (event) => {
+        if ((event as TransitionEvent).propertyName === "height") {
+          markSheetOverflow();
+        }
+      });
+
+      setSheet(false);
+
+      /**
+       * A drag on the handle, and a press that never moved is a press.
+       *
+       * The height is written straight onto the element while the finger is
+       * down so the sheet tracks it, then handed back to the stylesheet on
+       * release --- the two states are CSS, and leaving an inline height
+       * behind would freeze the sheet at whatever pixel the finger left it,
+       * out of step with a rotation or a rail that rewraps.
+       */
+      let sheetFrom = 0;
+      let sheetStart = 0;
+      let sheetShut = 0;
+      let sheetOpen = 0;
+      let dragging = false;
+      let sheetMoved = 0;
+
+      sheetHandle.addEventListener("pointerdown", (event) => {
+        const e = event as PointerEvent;
+        sheetHandle.setPointerCapture(e.pointerId);
+        dragging = true;
+        sheetMoved = 0;
+        sheetStart = e.clientY;
+        sheetFrom = panel.getBoundingClientRect().height;
+
+        // The same two ends the press uses, so a drag cannot put the sheet
+        // anywhere a press could not.
+        const bounds = sheetBounds();
+        sheetShut = bounds.shut;
+        sheetOpen = bounds.open;
+        panel.style.transition = "none";
+      });
+
+      sheetHandle.addEventListener("pointermove", (event) => {
+        if (!dragging) return;
+        const e = event as PointerEvent;
+        const dy = sheetStart - e.clientY;
+        sheetMoved = Math.max(sheetMoved, Math.abs(dy));
+        panel.style.height = `${Math.max(
+          sheetShut,
+          Math.min(sheetOpen, sheetFrom + dy),
+        )}px`;
+      });
+
+      const dropSheet = (event: PointerEvent | Event) => {
+        if (!dragging) return;
+        dragging = false;
+        const e = event as PointerEvent;
+        if (sheetHandle.hasPointerCapture?.(e.pointerId)) {
+          sheetHandle.releasePointerCapture(e.pointerId);
+        }
+        const height = panel.getBoundingClientRect().height;
+        panel.style.height = "";
+        panel.style.transition = "";
+        // Under the threshold nothing was a drag: it was a press, and a press
+        // toggles. Over it, the sheet goes wherever it is nearest.
+        if (sheetMoved < 6) {
+          setSheet(root.dataset.sheet !== "open");
+          return;
+        }
+        setSheet(height - sheetShut > (sheetOpen - sheetShut) / 2);
+      };
+
+      sheetHandle.addEventListener("pointerup", dropSheet);
+      sheetHandle.addEventListener("pointercancel", dropSheet);
+
+      // A pointer that never moved is a press, and the press is handled on
+      // release above. Without this a tap fires both and the sheet toggles
+      // twice, which reads as nothing happening at all.
+      sheetHandle.addEventListener("click", (event) => event.preventDefault());
+
+      // Enter and Space still have to work: `click` is prevented above, so the
+      // keyboard is served here rather than through it.
+      sheetHandle.addEventListener("keydown", (event) => {
+        const e = event as KeyboardEvent;
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        setSheet(root.dataset.sheet !== "open");
+      });
+
+      // Escape shuts it, bound on the sheet rather than on the document: the
+      // map has its own Escape --- it fits the view --- and a listener higher
+      // up would answer for both.
+      panel.addEventListener("keydown", (event) => {
+        const e = event as KeyboardEvent;
+        if (e.key !== "Escape" || root.dataset.sheet !== "open") return;
+        e.preventDefault();
+        setSheet(false);
+        sheetHandle.focus();
+      });
+
       // ---------- sound ----------
 
       // Faded in and out rather than switched: an ancient modal piece cutting
@@ -1543,7 +1824,6 @@ const coastline = roughen(rawCoastline);
        */
       type Stage = "prologue" | "sailing" | "arrived" | "voyage";
 
-      const root = document.documentElement;
       const stage = () => (root.dataset.stage ?? "voyage") as Stage;
       const setStage = (next: Stage) => {
         root.dataset.stage = next;
