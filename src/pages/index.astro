@@ -1386,9 +1386,26 @@ const coastline = roughen(rawCoastline);
        * reached `animateTo` at all. A press that never moves is a click now,
        * and gets the crossing.
        */
-      const SCRUB_SLOP = 4;
+      /**
+       * How far a press may wander and still be a press.
+       *
+       * A finger is not a mouse. A mouse click moves a pixel or none; a tap
+       * lands with a wobble of several, which is why both platforms allow for
+       * it --- Chrome's own tap slop is 8 density-independent pixels, iOS's
+       * about 10. At four for everything, a tap on a phone was read as a drag
+       * and `scrubTo` set the ship down at the stop outright: measured on the
+       * rail's own value, a press that wandered 6px crossed eight stops in a
+       * single frame, where one that wandered 3px took forty-six.
+       *
+       * So the teleport this file already fixed once, for the mouse, was still
+       * there for the only input most visitors have. The map next door had
+       * known a finger from a mouse all along; the rail had not.
+       */
+      const SCRUB_SLOP = { mouse: 4, pen: 6, touch: 10 };
       let pressing = false;
       let pressX = 0;
+      let pressSlop = SCRUB_SLOP.touch;
+      let pressProgress = 0;
 
       timeline.addEventListener("pointerdown", (event) => {
         pressing = true;
@@ -1397,12 +1414,16 @@ const coastline = roughen(rawCoastline);
         // Anything that does not name itself is treated as a finger: the cost
         // of being wrong that way is a tap that had to travel a little further
         // to become a drag, and the other way it is the teleport.
+        pressSlop =
+          SCRUB_SLOP[event.pointerType as keyof typeof SCRUB_SLOP] ??
+          SCRUB_SLOP.touch;
+        pressProgress = progress;
         hasSelected = true;
       });
 
       timeline.addEventListener("pointermove", (event) => {
         if (!pressing || scrubbing) return;
-        if (Math.abs(event.clientX - pressX) < SCRUB_SLOP) return;
+        if (Math.abs(event.clientX - pressX) < pressSlop) return;
         scrubbing = true;
         // Enter the following zoom as the drag begins, so it starts from the
         // scale it is going to stay at rather than jumping into it a frame
@@ -1433,14 +1454,35 @@ const coastline = roughen(rawCoastline);
         pressing = false;
         scrubbing = false;
 
-        // A click reads its target off where the pointer landed, because the
-        // value was put back on the ship while the press was held.
-        const index = wasScrubbing
+        // A drag that never actually moved the voyage was not a drag.
+        //
+        // The slop above is a threshold, and any threshold has a wrong side:
+        // a tap that wanders past it is taken for a drag, and then the press
+        // is answered by setting the ship down where the finger was rather
+        // than sailing it. Measured on a phone, a finger sliding 14px was read
+        // as a drag that scrubbed nowhere, so the tap did nothing at all.
+        //
+        // This is the same question asked after the fact, where it has a real
+        // answer instead of a guess: did the gesture move the voyage? If it
+        // did, it was a drag and the finger has already done the moving. If it
+        // did not, it was a press, and a press gets the crossing --- whatever
+        // the threshold thought at the time.
+        const sailed = Math.abs(progress - pressProgress) > 0.02;
+        const dragged = wasScrubbing && sailed;
+
+        // A press reads its target off where the pointer landed, because the
+        // value was put back on the ship while it was held.
+        const index = dragged
           ? Math.round(timeline.valueAsNumber)
           : indexAt(event);
-        if (wasScrubbing) {
+        if (dragged) {
           timeline.value = String(index);
           current = -1;
+        } else if (wasScrubbing) {
+          // It was treated as a drag on the way in, so the thumb may be
+          // sitting somewhere the ship is not. Put it back before the
+          // crossing carries it across.
+          timeline.value = String(progress);
         }
         show(index);
       };
