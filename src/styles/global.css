@@ -46,7 +46,7 @@
   --mono: ui-monospace, "SF Mono", "Menlo", monospace;
   --thumb: 14px;
   --topbar-h: 5rem;
-  --rail-h: 10.8rem;
+  --rail-h: 10.9rem;
   --band-h: 14px;
   --panel-w: 23rem;
 
@@ -1054,6 +1054,16 @@ html:not([data-stage="voyage"]) .counter.is-actual {
 
 /* ---------- calendar lane ---------- */
 
+/* One line above the lane: the toggle at the left, over the bar it names, and
+   the attribution at the far right so the row is not mostly empty. */
+.rail-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.7rem;
+  margin: 0 0 0.35rem;
+}
+
 .calendar {
   position: relative;
   height: 3.4rem;
@@ -1144,13 +1154,6 @@ html:not([data-stage="voyage"]) .counter.is-actual {
 }
 
 /* ---------- scale toggle ---------- */
-
-.rail-foot {
-  display: flex;
-  align-items: baseline;
-  gap: 0.7rem;
-  margin: 0.5rem 0 0;
-}
 
 .scale-toggle {
   display: inline-flex;
@@ -1502,11 +1505,6 @@ html:not([data-stage="voyage"]) .counter.is-actual {
 
   .leaders {
     display: none;
-  }
-
-  .rail-foot {
-    flex-direction: column;
-    gap: 0.3rem;
   }
 
   /* One screen, the same promise the desktop layout already makes. The page

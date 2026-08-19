@@ -346,6 +346,32 @@ const coastline = roughen(rawCoastline);
             remembers is the even one; the calendar is what the poem counts.
             The distance between a stop's two positions is the distance between
             those two things. */}
+        {/* Directly over the lane it names, and before it in the reading
+            order. It used to sit in the corner under the labels, a long way
+            from the only thing it changes, so the bar above the rail was an
+            unexplained band and the words for it were somewhere else. A
+            control belongs next to what it controls. */}
+        <p class="rail-head">
+          <button type="button" class="scale-toggle" id="scale-toggle" aria-pressed="false">
+            <span class="scale-dot"></span>
+            <span id="scale-label">Story order</span>
+          </button>
+          {/* The licence the music ships under requires attribution, so it is
+              on the page. It rides along this row rather than taking one of
+              its own: two full-width rows each holding one small thing at the
+              left end is a lot of empty rail, and an attribution belongs in
+              the quiet corner anyway. Not over the map, because the map's own
+              corner is hidden on a phone, and an attribution only some
+              visitors can see is not one. */}
+          <span class="credit">
+            <em>Temple of the Manes</em> by Kevin MacLeod, <a
+              href="https://creativecommons.org/licenses/by/4.0/"
+              rel="license noopener"
+              target="_blank">CC BY 4.0</a
+            >
+          </span>
+        </p>
+
         <div class="calendar" aria-hidden="true">
           <div class="cal-track" id="cal-track"></div>
           <svg
@@ -419,23 +445,6 @@ const coastline = roughen(rawCoastline);
             ))
           }
         </div>
-        <p class="rail-foot">
-          <button type="button" class="scale-toggle" id="scale-toggle" aria-pressed="false">
-            <span class="scale-dot"></span>
-            <span id="scale-label">Story order</span>
-          </button>
-          {/* The licence the music ships under requires attribution, so it is
-              on the page. It lives here rather than over the map because the
-              map's own corner is hidden on a phone, and an attribution only
-              some visitors can see is not one. */}
-          <span class="credit">
-            <em>Temple of the Manes</em> by Kevin MacLeod, <a
-              href="https://creativecommons.org/licenses/by/4.0/"
-              rel="license noopener"
-              target="_blank">CC BY 4.0</a
-            >
-          </span>
-        </p>
       </div>
     </main>
 
